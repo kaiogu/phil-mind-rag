@@ -1,6 +1,5 @@
 """Pipeline orchestration — the ONLY place that wires components together.
 
-LlamaIndex is used here as the thin orchestration layer.
 To swap frameworks, only this file needs to change.
 """
 
