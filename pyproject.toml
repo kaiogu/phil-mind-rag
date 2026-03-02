@@ -1,0 +1,47 @@
+[project]
+name = "phil-mind-rag"
+version = "0.1.0"
+description = "RAG system for Philosophy of Mind papers"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.5.2",
+    "gradio>=6.8.0",
+    "llama-index>=0.14.15",
+    "openai>=2.24.0",
+    "pydantic-settings>=2.13.1",
+    "python-dotenv>=1.2.2",
+    "ragas>=0.4.3",
+    "sentence-transformers>=5.2.3",
+    "tiktoken>=0.12.0",
+    "unstructured[pdf]>=0.21.5",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.4",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle — style violations
+    "F",   # pyflakes — unused imports, undefined names
+    "I",   # isort — import ordering
+    "S",   # bandit — security checks (hardcoded passwords, eval, etc.)
+    "B",   # bugbear — common gotchas (mutable defaults, bare except)
+    "UP",  # pyupgrade — modern Python 3.12+ syntax
+]
+
+[tool.uv]
+package = false
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
