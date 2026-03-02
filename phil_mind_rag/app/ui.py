@@ -26,12 +26,12 @@ def _get_pipeline() -> RAGPipeline:
 # --- Callbacks ----------------------------------------------------------
 
 
-def handle_upload(file: gr.File) -> str:  # type: ignore[type-arg]
+def handle_upload(file: str | None) -> str:
     """Ingest an uploaded PDF."""
     if file is None:
         return "No file uploaded."
 
-    path = Path(file.name)  # type: ignore[union-attr]
+    path = Path(file)
     try:
         count = _get_pipeline().ingest(path)
         return f"Ingested **{path.name}** — {count} chunks indexed."
@@ -71,6 +71,7 @@ def create_app() -> gr.Blocks:
             file_input = gr.File(
                 label="Upload a PDF paper",
                 file_types=[".pdf"],
+                type="filepath",
             )
             upload_btn = gr.Button("Ingest")
             upload_output = gr.Markdown(label="Status")
