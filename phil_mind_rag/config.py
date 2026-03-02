@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     chroma_persist_dir: Path = _PROJECT_ROOT / "data" / "chroma"
     chroma_collection_name: str = "phil_mind_papers"
 
+    # --- Registry -----------------------------------------------------------
+    registry_path: Path = _PROJECT_ROOT / "data" / "registry.json"
+
     # --- Ingestion ------------------------------------------------------
     max_document_size_mb: int = 50
     allowed_extensions: set[str] = {".pdf"}

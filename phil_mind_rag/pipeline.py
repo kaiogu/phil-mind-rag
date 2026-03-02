@@ -6,6 +6,7 @@ To swap frameworks, only this file needs to change.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 
 from openai import OpenAI
@@ -15,6 +16,7 @@ from phil_mind_rag.generation.llm import OpenAILLM
 from phil_mind_rag.generation.prompts import RAGPrompt
 from phil_mind_rag.ingestion.chunker import Chunk, SectionAwareChunker
 from phil_mind_rag.ingestion.parser import ParsedDocument, UnstructuredPDFParser
+from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
 from phil_mind_rag.retrieval.retriever import VectorRetriever
 from phil_mind_rag.retrieval.store import ChromaVectorStore, RetrievalResult
 from phil_mind_rag.security import sanitise_query, validate_document
@@ -39,6 +41,7 @@ class RAGPipeline:
             persist_dir=settings.chroma_persist_dir,
             collection_name=settings.chroma_collection_name,
         )
+        self._registry = DocumentRegistry(settings.registry_path)
 
         # OpenAI client for embeddings
         self._openai = OpenAI(api_key=api_key)
@@ -90,9 +93,35 @@ class RAGPipeline:
         """Persist chunks and their embeddings in the vector store."""
         self._store.add_chunks(chunks, embeddings)
 
+    def register(
+        self,
+        pdf_path: Path,
+        chunk_count: int,
+        title: str | None = None,
+        author: str | None = None,
+    ) -> DocumentRecord:
+        record = DocumentRecord(
+            source=pdf_path.name,
+            title=title.strip() if title and title.strip() else pdf_path.stem,
+            author=author.strip() if author and author.strip() else "",
+            chunk_count=chunk_count,
+            chunk_size=self._settings.chunk_size,
+            chunk_overlap=self._settings.chunk_overlap,
+            chunker=f"{type(self._chunker).__module__}.{type(self._chunker).__qualname__}",
+            embedding_model=self._embedding_model,
+            ingested_at=datetime.now(UTC).isoformat(),
+        )
+        self._registry.add(record)
+        return record
+
     # --- Convenience (all-in-one) ----------------------------------------
 
-    def ingest(self, pdf_path: Path) -> int:
+    def ingest(
+        self,
+        pdf_path: Path,
+        title: str | None = None,
+        author: str | None = None,
+    ) -> int:
         """Parse, chunk, embed, and store a PDF. Returns chunk count."""
         document = self.parse(pdf_path)
         chunks = self.chunk(document)
@@ -103,6 +132,7 @@ class RAGPipeline:
 
         embeddings = self.embed(chunks)
         self.store(chunks, embeddings)
+        self.register(pdf_path, len(chunks), title, author)
         return len(chunks)
 
     def query(self, question: str, top_k: int = 5) -> str:
@@ -122,6 +152,9 @@ class RAGPipeline:
         """Retrieve contexts without generating — useful for eval & debug."""
         clean_query = sanitise_query(question)
         return self._retriever.retrieve(clean_query, top_k=top_k)
+
+    def list_documents(self) -> list[DocumentRecord]:
+        return self._registry.list_all()
 
     @property
     def document_count(self) -> int:

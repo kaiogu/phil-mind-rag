@@ -26,8 +26,35 @@ def _get_pipeline() -> RAGPipeline:
 
 # --- Callbacks ----------------------------------------------------------
 
+LIBRARY_COLUMNS = [
+    "Title", "Author", "Source File", "Chunks",
+    "Chunk Size", "Chunk Overlap", "Chunker", "Embedding Model", "Ingested At",
+]
 
-def handle_upload(file: str | None) -> Generator[str, None, None]:
+
+def handle_refresh() -> list[list[object]]:
+    records = _get_pipeline().list_documents()
+    return [
+        [
+            r.title,
+            r.author,
+            r.source,
+            r.chunk_count,
+            r.chunk_size,
+            r.chunk_overlap,
+            r.chunker.split(".")[-1],                    # class name only
+            r.embedding_model,
+            r.ingested_at[:19].replace("T", " "),        # "2026-03-02 14:05:00"
+        ]
+        for r in records
+    ]
+
+
+def handle_upload(
+    file: str | None,
+    title: str | None,
+    author: str | None,
+) -> Generator[str, None, None]:
     """Ingest an uploaded PDF, yielding status updates to the UI."""
     if file is None:
         yield "No file uploaded."
@@ -52,6 +79,8 @@ def handle_upload(file: str | None) -> Generator[str, None, None]:
 
         yield f"⏳ **{path.name}** — Storing in vector database..."
         pipeline.store(chunks, embeddings)
+
+        pipeline.register(path, len(chunks), title, author)
 
         yield f"✅ Ingested **{path.name}** — {len(chunks)} chunks indexed."
     except ValueError as exc:
@@ -87,6 +116,16 @@ def create_app() -> gr.Blocks:
         )
 
         with gr.Tab("Upload"):
+            title_input = gr.Textbox(
+                label="Title (optional)",
+                placeholder="e.g. Facing Up to the Problem of Consciousness",
+                value="",
+            )
+            author_input = gr.Textbox(
+                label="Author (optional)",
+                placeholder="e.g. David Chalmers",
+                value="",
+            )
             file_input = gr.File(
                 label="Upload a PDF paper",
                 file_types=[".pdf"],
@@ -97,7 +136,7 @@ def create_app() -> gr.Blocks:
 
             upload_btn.click(
                 fn=handle_upload,
-                inputs=file_input,
+                inputs=[file_input, title_input, author_input],
                 outputs=upload_output,
             )
 
@@ -115,6 +154,22 @@ def create_app() -> gr.Blocks:
                 inputs=question_input,
                 outputs=answer_output,
             )
+
+        with gr.Tab("Library"):
+            gr.Markdown("### Ingested Papers")
+            refresh_btn = gr.Button("Refresh")
+            library_table = gr.Dataframe(
+                headers=LIBRARY_COLUMNS,
+                datatype=[
+                    "str", "str", "str",
+                    "number", "number", "number",
+                    "str", "str", "str",
+                ],
+                value=handle_refresh,   # called on page load
+                interactive=False,
+                wrap=True,
+            )
+            refresh_btn.click(fn=handle_refresh, inputs=None, outputs=library_table)
 
     return app
 

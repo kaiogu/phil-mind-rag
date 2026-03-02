@@ -30,7 +30,6 @@ class OpenAILLM(BaseLLM):
         response = self._client.chat.completions.create(
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
         )
         content = response.choices[0].message.content
         return content or ""
