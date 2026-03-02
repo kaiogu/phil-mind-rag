@@ -13,8 +13,8 @@ from openai import OpenAI
 from phil_mind_rag.config import Settings
 from phil_mind_rag.generation.llm import OpenAILLM
 from phil_mind_rag.generation.prompts import RAGPrompt
-from phil_mind_rag.ingestion.chunker import SectionAwareChunker
-from phil_mind_rag.ingestion.parser import UnstructuredPDFParser
+from phil_mind_rag.ingestion.chunker import Chunk, SectionAwareChunker
+from phil_mind_rag.ingestion.parser import ParsedDocument, UnstructuredPDFParser
 from phil_mind_rag.retrieval.retriever import VectorRetriever
 from phil_mind_rag.retrieval.store import ChromaVectorStore, RetrievalResult
 from phil_mind_rag.security import sanitise_query, validate_document
@@ -67,26 +67,42 @@ class RAGPipeline:
         )
         return [item.embedding for item in response.data]
 
-    # --- Public API -----------------------------------------------------
+    # --- Public API (individual steps) ------------------------------------
 
-    def ingest(self, pdf_path: Path) -> int:
-        """Parse, chunk, embed, and store a PDF. Returns chunk count."""
+    def parse(self, pdf_path: Path) -> ParsedDocument:
+        """Validate and parse a PDF into structured sections."""
         validate_document(
             pdf_path,
             allowed_exts=self._settings.allowed_extensions,
             max_mb=self._settings.max_document_size_mb,
         )
+        return self._parser.parse(pdf_path)
 
-        document = self._parser.parse(pdf_path)
-        chunks = self._chunker.chunk(document)
+    def chunk(self, document: ParsedDocument) -> list[Chunk]:
+        """Split a parsed document into retrieval-sized chunks."""
+        return self._chunker.chunk(document)
+
+    def embed(self, chunks: list[Chunk]) -> list[list[float]]:
+        """Embed a list of chunks via OpenAI."""
+        return self._embed_batch([c.text for c in chunks])
+
+    def store(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:
+        """Persist chunks and their embeddings in the vector store."""
+        self._store.add_chunks(chunks, embeddings)
+
+    # --- Convenience (all-in-one) ----------------------------------------
+
+    def ingest(self, pdf_path: Path) -> int:
+        """Parse, chunk, embed, and store a PDF. Returns chunk count."""
+        document = self.parse(pdf_path)
+        chunks = self.chunk(document)
 
         if not chunks:
             logger.warning("No chunks produced for %s", pdf_path.name)
             return 0
 
-        embeddings = self._embed_batch([c.text for c in chunks])
-        self._store.add_chunks(chunks, embeddings)
-
+        embeddings = self.embed(chunks)
+        self.store(chunks, embeddings)
         return len(chunks)
 
     def query(self, question: str, top_k: int = 5) -> str:

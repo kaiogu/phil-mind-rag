@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Generator
 from pathlib import Path
 
 import gradio as gr
@@ -26,20 +27,38 @@ def _get_pipeline() -> RAGPipeline:
 # --- Callbacks ----------------------------------------------------------
 
 
-def handle_upload(file: str | None) -> str:
-    """Ingest an uploaded PDF."""
+def handle_upload(file: str | None) -> Generator[str, None, None]:
+    """Ingest an uploaded PDF, yielding status updates to the UI."""
     if file is None:
-        return "No file uploaded."
+        yield "No file uploaded."
+        return
 
     path = Path(file)
+    pipeline = _get_pipeline()
+
     try:
-        count = _get_pipeline().ingest(path)
-        return f"Ingested **{path.name}** — {count} chunks indexed."
+        yield f"⏳ **{path.name}** — Parsing PDF..."
+        document = pipeline.parse(path)
+
+        yield f"⏳ **{path.name}** — Chunking sections..."
+        chunks = pipeline.chunk(document)
+
+        if not chunks:
+            yield f"⚠️ **{path.name}** — No chunks produced."
+            return
+
+        yield f"⏳ **{path.name}** — Embedding {len(chunks)} chunks..."
+        embeddings = pipeline.embed(chunks)
+
+        yield f"⏳ **{path.name}** — Storing in vector database..."
+        pipeline.store(chunks, embeddings)
+
+        yield f"✅ Ingested **{path.name}** — {len(chunks)} chunks indexed."
     except ValueError as exc:
-        return f"Validation error: {exc}"
+        yield f"Validation error: {exc}"
     except Exception:
         logger.exception("Ingestion failed for %s", path)
-        return "An unexpected error occurred during ingestion."
+        yield "An unexpected error occurred during ingestion."
 
 
 def handle_query(question: str) -> str:
