@@ -19,7 +19,7 @@ class BaseLLM(ABC):
 class OpenAILLM(BaseLLM):
     """Thin wrapper around the OpenAI chat completions API."""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
+    def __init__(self, api_key: str, model: str = "gpt-5-mini") -> None:
         from openai import OpenAI
 
         self._client = OpenAI(api_key=api_key)

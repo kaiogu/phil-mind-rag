@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # --- OpenAI ---------------------------------------------------------
     openai_api_key: SecretStr
     openai_embedding_model: str = "text-embedding-3-small"
-    openai_chat_model: str = "gpt-4o-mini"
+    openai_chat_model: str = "gpt-5-mini"
 
     # --- ChromaDB -------------------------------------------------------
     chroma_persist_dir: Path = _PROJECT_ROOT / "data" / "chroma"
