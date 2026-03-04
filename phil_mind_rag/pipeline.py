@@ -15,6 +15,10 @@ from phil_mind_rag.config import Settings
 from phil_mind_rag.generation.llm import OpenAILLM
 from phil_mind_rag.generation.prompts import RAGPrompt
 from phil_mind_rag.ingestion.chunker import Chunk, SectionAwareChunker
+from phil_mind_rag.ingestion.metadata_extractor import (
+    ExtractedMetadata,
+    MetadataExtractor,
+)
 from phil_mind_rag.ingestion.parser import ParsedDocument, UnstructuredPDFParser
 from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
 from phil_mind_rag.retrieval.retriever import VectorRetriever
@@ -53,6 +57,7 @@ class RAGPipeline:
         )
         self._llm = OpenAILLM(api_key=api_key, model=settings.openai_chat_model)
         self._prompt = RAGPrompt()
+        self._metadata_extractor = MetadataExtractor(llm=self._llm)
 
     # --- Embedding helper -----------------------------------------------
 
@@ -114,6 +119,10 @@ class RAGPipeline:
         self._registry.add(record)
         return record
 
+    def extract_metadata(self, pdf_path: Path) -> ExtractedMetadata:
+        """Extract title/author from a PDF's embedded metadata or via LLM."""
+        return self._metadata_extractor.extract(pdf_path)
+
     # --- Convenience (all-in-one) ----------------------------------------
 
     def ingest(
@@ -137,16 +146,23 @@ class RAGPipeline:
 
     def query(self, question: str, top_k: int = 5) -> str:
         """Answer a question using retrieved context."""
+        answer, _ = self.query_with_sources(question, top_k=top_k)
+        return answer
+
+    def query_with_sources(
+        self, question: str, top_k: int = 5
+    ) -> tuple[str, list[RetrievalResult]]:
+        """Answer a question and return the retrieved source chunks."""
         clean_query = sanitise_query(question)
         contexts: list[RetrievalResult] = self._retriever.retrieve(
             clean_query, top_k=top_k
         )
 
         if not contexts:
-            return "No relevant context found for your question."
+            return "No relevant context found for your question.", []
 
         prompt = self._prompt.build(clean_query, contexts)
-        return self._llm.generate(prompt)
+        return self._llm.generate(prompt), contexts
 
     def retrieve(self, question: str, top_k: int = 5) -> list[RetrievalResult]:
         """Retrieve contexts without generating — useful for eval & debug."""
