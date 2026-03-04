@@ -1,0 +1,57 @@
+name: 👷 Conventional Commits
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+jobs:
+  lint-commits:
+    name: Lint commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        run: |
+          python3 - <<'EOF'
+          import re, subprocess, sys
+
+          TYPES = r"feat|fix|docs|style|refactor|test|build|ci|chore|perf|revert"
+          PATTERN = re.compile(
+              rf"^[^\x00-\x7F]+\s+({TYPES})(\([a-zA-Z0-9_/:-]+\))?: .{{1,100}}$"
+          )
+          SKIP_PREFIXES = ("Merge ", "Revert ", "fixup!", "squash!", "Initial commit")
+
+          base = "${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          result = subprocess.run(
+              ["git", "log", "--format=%s", f"{base}..HEAD"],
+              capture_output=True, text=True,
+          )
+          subjects = [s.strip() for s in result.stdout.splitlines() if s.strip()]
+
+          if not subjects:
+              print("No new commits to check.")
+              sys.exit(0)
+
+          errors = []
+          for subject in subjects:
+              if any(subject.startswith(p) for p in SKIP_PREFIXES):
+                  continue
+              if not PATTERN.match(subject):
+                  errors.append(subject)
+
+          if errors:
+              print("❌ Non-conforming commit messages:")
+              for e in errors:
+                  print(f"  - {e!r}")
+              print()
+              print("Format: <emoji> <type>[(<scope>)]: <description>")
+              print("Example: ✨ feat(ui): add sources panel below answer")
+              sys.exit(1)
+
+          print(f"✅ All {len(subjects)} commit(s) follow conventional commits format.")
+          EOF

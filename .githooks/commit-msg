@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""commit-msg hook: enforces emoji-prefixed conventional commits.
+
+Install once:
+    git config core.hooksPath .githooks
+
+Format: <emoji> <type>[(<scope>)]: <description>
+Examples:
+    ✨ feat(ui): add sources panel below answer
+    🐛 fix(eval): update to RAGAS 0.4.x API
+    📝 docs: update README
+"""
+
+import re
+import sys
+
+TYPES = r"feat|fix|docs|style|refactor|test|build|ci|chore|perf|revert"
+# First char(s) must be non-ASCII (emoji), followed by space + conventional format
+PATTERN = re.compile(
+    rf"^[^\x00-\x7F]+\s+({TYPES})(\([a-zA-Z0-9_/:-]+\))?: .{{1,100}}$"
+)
+
+SKIP_PREFIXES = ("Merge ", "Revert ", "fixup!", "squash!", "Initial commit")
+
+
+def main() -> int:
+    msg_path = sys.argv[1]
+    with open(msg_path, encoding="utf-8") as f:
+        raw = f.read()
+
+    subject = next(
+        (line.strip() for line in raw.splitlines() if line.strip() and not line.startswith("#")),
+        "",
+    )
+
+    if not subject or any(subject.startswith(p) for p in SKIP_PREFIXES):
+        return 0
+
+    if PATTERN.match(subject):
+        return 0
+
+    print(
+        "\n❌  Commit message does not follow the conventional commits format.\n"
+        "\nFormat:  <emoji> <type>[(<scope>)]: <short description>\n"
+        "\nExamples:\n"
+        "  ✨ feat(ui): add sources panel below answer\n"
+        "  🐛 fix(eval): update evaluator to RAGAS 0.4.x API\n"
+        "  📝 docs: update README with eval results\n"
+        "  👷 ci: add conventional commit enforcement\n"
+        "\nAllowed types:\n"
+        "  feat  fix  docs  style  refactor  test  build  ci  chore  perf  revert\n"
+        f"\nYour message: {subject!r}\n",
+        file=sys.stderr,
+    )
+    return 1
+
+
+sys.exit(main())
