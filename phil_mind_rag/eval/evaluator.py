@@ -44,38 +44,44 @@ class RAGEvaluator:
     """Evaluate a RAG pipeline using RAGAS metrics."""
 
     def evaluate(self, samples: list[EvalSample]) -> EvalResult:
-        from datasets import Dataset
-        from ragas import evaluate as ragas_evaluate
-        from ragas.metrics import (
-            answer_relevancy,
-            context_precision,
-            context_recall,
-            faithfulness,
+        from ragas import EvaluationDataset, evaluate as ragas_evaluate
+        from ragas.dataset_schema import SingleTurnSample
+        from ragas.metrics.collections import (
+            AnswerRelevancy,
+            ContextPrecision,
+            ContextRecall,
+            Faithfulness,
         )
 
-        data = {
-            "question": [s.question for s in samples],
-            "answer": [s.answer for s in samples],
-            "contexts": [s.contexts for s in samples],
-            "ground_truth": [s.ground_truth for s in samples],
-        }
+        ragas_samples = [
+            SingleTurnSample(
+                user_input=s.question,
+                response=s.answer,
+                retrieved_contexts=s.contexts,
+                reference=s.ground_truth,
+            )
+            for s in samples
+        ]
 
-        dataset = Dataset.from_dict(data)
+        dataset = EvaluationDataset(samples=ragas_samples)
+
+        metrics = [
+            Faithfulness(),
+            AnswerRelevancy(),
+            ContextPrecision(),
+            ContextRecall(),
+        ]
 
         logger.info("Running RAGAS evaluation on %d samples", len(samples))
-        result = ragas_evaluate(
-            dataset=dataset,
-            metrics=[
-                faithfulness,
-                answer_relevancy,
-                context_precision,
-                context_recall,
-            ],
-        )
+        result = ragas_evaluate(dataset=dataset, metrics=metrics)
+
+        def _mean(key: str) -> float:
+            values = [v for v in result[key] if v is not None]
+            return sum(values) / len(values) if values else float("nan")
 
         return EvalResult(
-            faithfulness=result["faithfulness"],
-            answer_relevancy=result["answer_relevancy"],
-            context_precision=result["context_precision"],
-            context_recall=result["context_recall"],
+            faithfulness=_mean("faithfulness"),
+            answer_relevancy=_mean("answer_relevancy"),
+            context_precision=_mean("context_precision"),
+            context_recall=_mean("context_recall"),
         )
