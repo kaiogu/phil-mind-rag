@@ -50,6 +50,18 @@ def handle_refresh() -> list[list[object]]:
     ]
 
 
+def handle_extract_metadata(file: str | None) -> tuple[str, str]:
+    """Return (title, author) extracted from the uploaded PDF."""
+    if file is None:
+        return "", ""
+    try:
+        meta = _get_pipeline().extract_metadata(Path(file))
+        return meta.title or "", meta.author or ""
+    except Exception:
+        logger.exception("Metadata extraction failed for %s", file)
+        return "", ""
+
+
 def handle_upload(
     file: str | None,
     title: str | None,
@@ -90,18 +102,36 @@ def handle_upload(
         yield "An unexpected error occurred during ingestion."
 
 
-def handle_query(question: str) -> str:
-    """Answer a question against the indexed papers."""
+def handle_query(question: str) -> tuple[str, str]:
+    """Answer a question and return (answer_markdown, sources_markdown)."""
     if not question.strip():
-        return "Please enter a question."
+        return "Please enter a question.", ""
 
     try:
-        return _get_pipeline().query(question)
+        answer, sources = _get_pipeline().query_with_sources(question)
+        sources_md = _format_sources(sources)
+        return answer, sources_md
     except ValueError as exc:
-        return f"Input error: {exc}"
+        return f"Input error: {exc}", ""
     except Exception:
         logger.exception("Query failed")
-        return "An unexpected error occurred while generating the answer."
+        return "An unexpected error occurred while generating the answer.", ""
+
+
+def _format_sources(sources: list) -> str:
+    if not sources:
+        return ""
+    lines = ["**Retrieved sources:**\n"]
+    for i, r in enumerate(sources, 1):
+        src = r.metadata.get("source", "?")
+        section = r.metadata.get("section", "?")
+        score = r.score
+        snippet = r.text[:200].replace("\n", " ")
+        lines.append(
+            f"{i}. **{src} — {section}** (score: {score:.3f})\n"
+            f"   > {snippet}…"
+        )
+    return "\n\n".join(lines)
 
 
 # --- UI -----------------------------------------------------------------
@@ -131,6 +161,11 @@ def create_app() -> gr.Blocks:
                 file_types=[".pdf"],
                 type="filepath",
             )
+            file_input.change(
+                fn=handle_extract_metadata,
+                inputs=file_input,
+                outputs=[title_input, author_input],
+            )
             upload_btn = gr.Button("Ingest")
             upload_output = gr.Markdown(label="Status")
 
@@ -148,11 +183,12 @@ def create_app() -> gr.Blocks:
             )
             ask_btn = gr.Button("Ask")
             answer_output = gr.Markdown(label="Answer")
+            sources_output = gr.Markdown(label="Sources")
 
             ask_btn.click(
                 fn=handle_query,
                 inputs=question_input,
-                outputs=answer_output,
+                outputs=[answer_output, sources_output],
             )
 
         with gr.Tab("Library"):
