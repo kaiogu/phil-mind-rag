@@ -42,6 +42,10 @@ select = [
 [tool.uv]
 package = false
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
