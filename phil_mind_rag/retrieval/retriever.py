@@ -27,7 +27,7 @@ class VectorRetriever(BaseRetriever):
     def __init__(
         self,
         store: BaseVectorStore,
-        embed_fn: callable,  # type: ignore[type-arg]
+        embed_fn: callable,  # type: ignore
     ) -> None:
         self._store = store
         self._embed_fn = embed_fn

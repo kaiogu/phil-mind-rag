@@ -7,8 +7,8 @@ import pytest
 from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
 
 
-def _record(source: str = "paper.pdf", title: str = "Test Paper", **kwargs: object) -> DocumentRecord:
-    defaults = dict(
+def _record(source: str = "paper.pdf", title: str = "Test Paper", **kwargs: str | int) -> DocumentRecord:
+    defaults: dict[str, str | int] = dict(
         source=source,
         title=title,
         author="Test Author",
@@ -20,7 +20,7 @@ def _record(source: str = "paper.pdf", title: str = "Test Paper", **kwargs: obje
         ingested_at="2026-03-04T12:00:00+00:00",
     )
     defaults.update(kwargs)
-    return DocumentRecord(**defaults)  # type: ignore[arg-type]
+    return DocumentRecord(**defaults)  # type: ignore
 
 
 class TestDocumentRegistry:
