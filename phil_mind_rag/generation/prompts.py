@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from phil_mind_rag.retrieval.store import RetrievalResult
+# TYPE_CHECKING guard breaks a circular import:
+# retrieval/store.py → ingestion/chunker.py → generation/__init__.py
+#                    → generation/prompts.py → retrieval/store.py  ← cycle
+# Since from __future__ import annotations makes all annotations lazy strings,
+# RetrievalResult is never needed at runtime here — only for static analysis.
+if TYPE_CHECKING:
+    from phil_mind_rag.retrieval.store import RetrievalResult
 
 _DEFAULT_SYSTEM = (
     "You are a knowledgeable assistant specialising in Philosophy of Mind. "

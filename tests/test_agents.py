@@ -333,3 +333,41 @@ class TestRunAnalysis:
             run_analysis("Hard problem of consciousness", mock_pipeline, mock_settings)
 
         mock_pipeline.retrieve.assert_called_once_with("Hard problem of consciousness")
+
+
+# --- Import / startup regression tests -----------------------------------
+
+
+class TestStartup:
+    """Guard against the circular import that broke startup in the first run.
+
+    The cycle was:
+        retrieval/store.py → ingestion/chunker.py
+                           → ingestion/metadata_extractor.py
+                           → generation/__init__.py
+                           → generation/prompts.py
+                           → retrieval/store.py  ← cycle
+
+    Fix: generation/prompts.py imports RetrievalResult under TYPE_CHECKING only,
+    since from __future__ import annotations makes all annotations lazy strings.
+
+    If the fix is reverted, build_graph() raises:
+        NameError: name 'RetrievalResult' is not defined
+    because LangGraph calls get_type_hints(AgentState) at StateGraph construction
+    time and can't resolve the lazy annotation string.
+    """
+
+    def test_build_graph_constructs_without_error(self) -> None:
+        """StateGraph(AgentState) must not raise NameError on RetrievalResult."""
+        mock_pipeline = MagicMock()
+        mock_settings = MagicMock()
+        mock_settings.openai_api_key.get_secret_value.return_value = "sk-test"
+        mock_settings.openai_chat_model = "gpt-4o-mini"
+
+        with patch("phil_mind_rag.agents.graph.OpenAI"):
+            # build_graph() calls StateGraph(AgentState) which calls
+            # get_type_hints(AgentState) — this is the call that failed.
+            from phil_mind_rag.agents.graph import build_graph
+            graph = build_graph(mock_pipeline, mock_settings)
+
+        assert graph is not None
