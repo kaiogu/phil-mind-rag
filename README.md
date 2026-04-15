@@ -10,203 +10,245 @@ app_port: 7860
 
 # Philosophy of Mind RAG
 
-A Retrieval-Augmented Generation (RAG) system for querying academic papers in Philosophy of Mind. Upload PDFs, then ask natural-language questions — the system retrieves relevant passages and generates grounded answers via OpenAI.
+A learning and portfolio project building a RAG system that evolves into a multi-agent reasoning architecture over philosophy-of-mind papers. The goal is to understand — deeply, not just use — retrieval-augmented generation, vector search, LLM orchestration, and multi-agent coordination.
 
-## Evaluation Results
-
-Evaluated on 12 questions about Thomas Nagel's *What Is It Like to Be a Bat?* using RAGAS metrics.
-
-| Metric | Score |
-|---|---|
-| Faithfulness | — |
-| Answer Relevancy | — |
-| Context Precision | — |
-| Context Recall | — |
-
-> **Note:** Run `python scripts/run_eval.py` after ingesting the corpus to populate these numbers.
-
-## Features
-
-- **PDF ingestion** — parse, chunk, embed, and index papers with real-time progress updates
-- **Semantic search** — vector retrieval via ChromaDB using OpenAI embeddings
-- **LLM-generated answers** — responses grounded in retrieved paper excerpts, with citations
-- **Source panel** — displays the retrieved chunks that informed each answer
-- **Gradio web UI** — browser-based interface with Upload, Ask, and Library tabs
-- **Security** — prompt-injection detection, file-type/size validation
-- **Evaluation** — RAGAS metrics (faithfulness, answer relevancy, context precision/recall)
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- [uv](https://github.com/astral-sh/uv)
-- An OpenAI API key
-
-### Install
-
-```bash
-uv sync
-```
-
-### Configure
-
-Create a `.env` file in the project root:
-
-```bash
-OPENAI_API_KEY=sk-...
-```
-
-### Run
-
-```bash
-python main.py
-```
-
-Open [http://localhost:7860](http://localhost:7860) in your browser.
-
-### Run Evaluation
-
-After ingesting at least one document:
-
-```bash
-python scripts/run_eval.py
-```
-
-## Usage
-
-1. **Upload tab** — select a PDF and click **Ingest**. Progress is shown step-by-step (parse → chunk → embed → store).
-2. **Ask tab** — type a question and click **Ask** to get an answer sourced from the indexed papers. Retrieved source passages appear below the answer.
-3. **Library tab** — view all ingested documents.
-
-## Configuration
-
-All settings are loaded from environment variables (or `.env`). Defaults:
-
-| Variable | Default | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | _(required)_ | OpenAI API key |
-| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
-| `OPENAI_CHAT_MODEL` | `gpt-5-mini` | Chat model for generation |
-| `CHROMA_PERSIST_DIR` | `data/chroma` | ChromaDB storage path |
-| `CHROMA_COLLECTION_NAME` | `phil_mind_papers` | ChromaDB collection |
-| `CHUNK_SIZE` | `512` | Tokens per chunk |
-| `CHUNK_OVERLAP` | `64` | Token overlap between chunks |
-| `MAX_DOCUMENT_SIZE_MB` | `50` | Maximum PDF size |
-| `GRADIO_SERVER_PORT` | `7860` | UI port |
-
-## Project Structure
-
-```
-phil_mind_rag/
-├── app/
-│   └── ui.py           # Gradio frontend
-├── ingestion/
-│   ├── parser.py       # PDF → structured sections (Unstructured)
-│   └── chunker.py      # Section-aware text chunking
-├── retrieval/
-│   ├── store.py        # ChromaDB vector store
-│   └── retriever.py    # Top-k semantic retrieval
-├── generation/
-│   ├── llm.py          # OpenAI chat completion
-│   └── prompts.py      # RAG prompt template
-├── eval/
-│   └── evaluator.py    # RAGAS evaluation harness
-├── pipeline.py         # Orchestrates all components
-├── config.py           # Pydantic settings
-└── security.py         # Input sanitisation & validation
-data/
-└── eval_set.json       # 12-question eval set (Nagel bat paper)
-scripts/
-└── run_eval.py         # CLI evaluation runner
-```
-
-## Development
-
-```bash
-# Lint
-uv run ruff check .
-
-# Type-check
-uv run mypy .
-
-# Tests
-uv run pytest
-```
-
-## Contributing
-
-This project follows [Conventional Commits](https://www.conventionalcommits.org/) with an emoji prefix.
-
-**Format:** `<emoji> <type>[(<scope>)]: <short description>`
-
-| Emoji | Type | Use for |
-|---|---|---|
-| ✨ | `feat` | New feature |
-| 🐛 | `fix` | Bug fix |
-| 📝 | `docs` | Documentation |
-| 🎨 | `style` | Formatting, no logic change |
-| ♻️ | `refactor` | Code restructure, no behaviour change |
-| 🧪 | `test` | Tests |
-| 📦 | `build` | Dependencies, build system |
-| 👷 | `ci` | CI/CD pipelines |
-| 🔧 | `chore` | Maintenance, tooling |
-| ⚡ | `perf` | Performance improvement |
-| ⏪ | `revert` | Revert a previous commit |
-
-**Examples:**
-
-```
-✨ feat(ui): add retrieved sources panel below answer
-🐛 fix(eval): update evaluator to RAGAS 0.4.x API
-📝 docs: add eval results table to README
-📦 build: add Dockerfile for HuggingFace Spaces
-```
-
-### Install the commit-msg hook
-
-```bash
-git config core.hooksPath .githooks
-```
-
-The hook rejects commits that don't match the format above. A GitHub Actions workflow runs the same check on every push and pull request.
-
-## Tech Stack
-
-- [Unstructured](https://github.com/Unstructured-IO/unstructured) — PDF parsing
-- [ChromaDB](https://www.trychroma.com/) — local vector store
-- [OpenAI](https://platform.openai.com/) — embeddings & chat completion
-- [Gradio](https://gradio.app/) — web UI
-- [RAGAS](https://docs.ragas.io/) — RAG evaluation metrics
-- [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) — configuration
-
-## Deployment
-
-The app ships as a Docker image for [HuggingFace Spaces](https://huggingface.co/spaces) (Docker SDK).
-
-Set `OPENAI_API_KEY` as a Space secret in the HF Space settings. The `Dockerfile` installs all system dependencies (poppler, tesseract) required by Unstructured.
+This README explains what the system does, why each piece works the way it does, what you should actually read and understand in the code, and where the project is going.
 
 ---
 
-## Design Notes
+## What it does (current)
 
-### What I built
+Upload a philosophy PDF. Ask a question. The system retrieves the most relevant passages and generates a grounded answer with source citations.
 
-A production-quality RAG system for philosophy of mind papers. The architecture is component-based: each layer (parse → chunk → embed → store → retrieve → generate) is behind a plain Python interface, making it easy to swap backends without touching the rest of the code.
+Under the hood: the PDF is parsed into structural sections, split into overlapping chunks, embedded into a vector space, and stored in ChromaDB. At query time, the question is embedded and compared against all stored chunks via cosine similarity. The top-k most similar chunks are passed to an LLM with a prompt that constrains it to answer only from the retrieved context.
 
-### Key decisions
+## What it becomes (in progress)
 
-**Unstructured for parsing.** Academic PDFs have complex layouts (multi-column, footnotes, headers). Unstructured's layout-aware parser extracts sections with structure preserved, which improves chunk coherence. The trade-off is system dependencies (poppler, tesseract), addressed by Docker deployment.
+Three stance agents — materialist, idealist, dualist — each read the same retrieved passages and write a structured memo arguing their philosophical position. A grounding agent reads all three memos, checks every claim against the source chunks, and produces a synthesis report. See [`docs/design.md`](docs/design.md) for the full architecture.
 
-**Section-aware chunking.** Chunks stay within section boundaries rather than splitting blindly at token limits. This means retrieved chunks are semantically coherent — a chunk from the "Introduction" is less likely to mix arguments from different sections.
+---
 
-**RAGAS evaluation.** Chose RAGAS because it measures what matters: does the answer faithfully reflect the retrieved context (faithfulness), and did the retrieval surface the right passages (context precision/recall)? A 12-question eval set was hand-authored against Nagel's *What Is It Like to Be a Bat?* to give reproducible, inspectable results.
+## Architecture
 
-**Source citations in UI.** The retrieved chunks that ground each answer are displayed separately from the answer text. This makes the RAG mechanism visible during demos and lets users verify claims against the source.
+### Current: single-pipeline RAG
 
-### What I'd improve next
+```
+PDF
+ │
+ ▼
+Parser          Unstructured — layout-aware, preserves document structure
+ │
+ ▼
+Chunker         Section-aware: chunks never cross section boundaries
+ │
+ ▼
+Embedder        OpenAI text-embedding-3-small — 1536-dim dense vectors
+ │
+ ▼
+Vector Store    ChromaDB — HNSW index, cosine similarity
+ │
+ ▼  (at query time)
+Retriever       Embed query → top-k nearest neighbours
+ │
+ ▼
+LLM             GPT-4o-mini — constrained to retrieved context
+ │
+ ▼
+Gradio UI
+```
 
-- **Hybrid retrieval**: add BM25 alongside dense vectors for better coverage on exact-match queries (author names, technical terms).
-- **Re-ranking**: a cross-encoder re-ranker after the initial retrieval step would improve precision.
-- **Streaming answers**: stream the LLM response token-by-token via the OpenAI streaming API for better perceived latency.
-- **Multi-document eval**: expand the eval set to cover more papers and add cross-paper reasoning questions.
+The key architectural decision: every layer is behind a plain Python interface (`BaseVectorStore`, `BaseRetriever`, `BaseLLM`). `pipeline.py` is the only file that touches all of them. Swapping ChromaDB for Pinecone, or OpenAI for Cohere, means changing one file.
+
+### Upcoming: multi-agent with LangGraph
+
+```
+User question
+      │
+      ▼
+  Retrieval         shared top-k chunks
+      │
+      ├──► Materialist agent  ──► StanceMemo
+      ├──► Idealist agent     ──► StanceMemo    (parallel)
+      └──► Dualist agent      ──► StanceMemo
+                                      │
+                                      ▼
+                             Grounding agent  ──►  SynthesisReport
+                                      │
+                                      ▼
+                                  Gradio UI
+```
+
+LangGraph models this as a directed graph where nodes are agent calls and edges are control flow decisions. The parallel fan-out and fan-in pattern is a core LangGraph primitive.
+
+---
+
+## The theory behind each layer
+
+### Chunking
+
+**Why it matters:** LLMs have context windows. You cannot pass a whole book. You must split text into retrievable units, retrieve only what's relevant, and pass that. The quality of chunking directly determines retrieval quality.
+
+**What section-aware chunking does:** A naive chunker splits at fixed token counts and doesn't care about document structure — a chunk might contain the end of one section and the start of another. A section-aware chunker splits *within* sections, so each chunk is semantically coherent. For academic papers with distinct Introduction / Argument / Objection sections, this matters.
+
+**Read:** `phil_mind_rag/ingestion/chunker.py` — especially how section boundaries are preserved and how `chunk_overlap` creates a sliding window so context isn't lost at chunk edges.
+
+### Vector embeddings and similarity search
+
+**What embeddings are:** A text embedding model maps a string to a point in high-dimensional space such that semantically similar strings land near each other. `text-embedding-3-small` produces 1536-dimensional vectors. "What is consciousness?" and "The hard problem of mind" will be close; "What is consciousness?" and "The GDP of France" will be far.
+
+**Cosine similarity:** The distance metric used here. Two vectors are similar if they point in the same direction, regardless of magnitude. This is standard for text because embedding magnitude doesn't carry semantic meaning.
+
+**HNSW index:** ChromaDB uses Hierarchical Navigable Small World graphs for approximate nearest-neighbour search. Exact search over millions of vectors is O(n) — too slow. HNSW is O(log n) with a small accuracy trade-off. You won't need to implement this, but understanding why approximate search exists matters.
+
+**Read:** `phil_mind_rag/retrieval/store.py` — `ChromaVectorStore.query()` shows how a query embedding is sent to ChromaDB and how the returned distances (cosine distance → similarity score) are interpreted.
+
+### Retrieval-Augmented Generation (RAG)
+
+**The problem RAG solves:** LLMs hallucinate when asked about things outside their training data, or when precise sourcing matters. RAG constrains the LLM to reason from a specific retrieved context — it becomes a reading comprehension task, not a memory recall task.
+
+**The retrieval-generation contract:** The prompt explicitly instructs the LLM to answer only from the provided passages and to say it doesn't know if the answer isn't there. `phil_mind_rag/generation/prompts.py` is this contract in code.
+
+**Faithfulness vs relevancy:** A faithful answer uses only retrieved content. A relevant answer actually addresses the question. These are different failure modes. You can be faithful but irrelevant (retrieved the wrong chunks) or relevant but unfaithful (LLM added information not in the context).
+
+**Read:** `phil_mind_rag/generation/prompts.py` and `phil_mind_rag/pipeline.py` (`query_with_sources`).
+
+### Multi-agent coordination
+
+**Why multiple agents?** A single LLM asked "compare materialism and idealism" will produce a balanced summary that represents no position strongly. Stance agents are constrained to argue *for* their position as charitably as possible — they produce stronger, more specific arguments. The grounding agent then has real disagreement to adjudicate, not mush.
+
+**The anti-prompt-theater principle:** Three agents with different system prompts but identical retrieval, tools, and memory is mostly cosmetic. Real multi-agent differentiation means agents differ in what they retrieve, how they use tools, what schema they output, or how they critique. v1 uses the same retrieval but different output schemas and critique responsibilities — a minimal but real differentiation.
+
+**LangGraph:** Models agent pipelines as directed graphs. Nodes are functions (agent calls, tool calls, conditional logic). Edges are transitions. State flows through the graph and is updated at each node. This makes the control flow explicit and inspectable rather than implicit in a chain of function calls.
+
+**Read:** [`docs/design.md`](docs/design.md) for the full multi-agent design, then the LangGraph docs on [state machines](https://langchain-ai.github.io/langgraph/concepts/) before touching implementation.
+
+### Evaluation (RAGAS)
+
+**Why evals matter:** Without metrics, you can't tell if a change to chunking, retrieval, or prompting made things better or worse. "It seems better" is not a signal you can act on.
+
+**RAGAS metrics:**
+- **Faithfulness** — does the answer contain only claims supported by the retrieved context?
+- **Answer relevancy** — does the answer actually address the question?
+- **Context precision** — of the retrieved chunks, what fraction were actually useful?
+- **Context recall** — of the relevant information that exists in the corpus, what fraction was retrieved?
+
+**LLM-as-judge:** RAGAS uses an LLM to evaluate LLM outputs. This is circular if the same model family generates and judges, so cross-model evaluation (generate with one family, judge with another) is the mitigation.
+
+**Read:** `phil_mind_rag/eval/evaluator.py` and `data/eval_set.json`.
+
+---
+
+## Code worth reading directly
+
+These are the files where the real decisions live. Read them in this order:
+
+| File | What to understand |
+|---|---|
+| `phil_mind_rag/config.py` | How Pydantic Settings works — env vars → typed config with zero boilerplate |
+| `phil_mind_rag/ingestion/chunker.py` | Section-aware chunking logic, the sliding window, why `chunk_overlap` exists |
+| `phil_mind_rag/retrieval/store.py` | `BaseVectorStore` ABC pattern, how ChromaDB stores and queries, cosine distance → similarity conversion |
+| `phil_mind_rag/pipeline.py` | How all components are wired together; the only file with global knowledge of the system |
+| `phil_mind_rag/generation/prompts.py` | The RAG prompt contract — how context is injected and what constraints are placed on the LLM |
+| `phil_mind_rag/security.py` | Prompt injection detection and document validation — boundary security in an LLM app |
+| `phil_mind_rag/eval/evaluator.py` | RAGAS integration — what metrics exist and how they're computed |
+| `docs/design.md` | The multi-agent architecture design — read before touching agent code |
+
+### What not to read first
+
+- `phil_mind_rag/app/ui.py` — Gradio wiring, not where the interesting decisions are
+- `phil_mind_rag/ingestion/parser.py` — thin wrapper over Unstructured, not much to learn here
+- `tests/` — useful for understanding expected behaviour, but not architectural
+
+---
+
+## Tech stack
+
+| Tool | Why |
+|---|---|
+| [Unstructured](https://github.com/Unstructured-IO/unstructured) | Layout-aware PDF parsing — preserves section structure that naive parsers discard |
+| [ChromaDB](https://www.trychroma.com/) | Local persistent vector store with HNSW — no infrastructure needed for development |
+| [OpenAI](https://platform.openai.com/) | `text-embedding-3-small` for embeddings, `gpt-4o-mini` for generation |
+| [LangGraph](https://langchain-ai.github.io/langgraph/) | Explicit state-machine orchestration for multi-agent pipelines |
+| [RAGAS](https://docs.ragas.io/) | RAG evaluation metrics — faithfulness, relevancy, context precision/recall |
+| [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) | Typed configuration from environment variables |
+| [Gradio](https://gradio.app/) | Browser UI — low friction, good enough for portfolio and iteration |
+| [uv](https://github.com/astral-sh/uv) | Fast Python package manager |
+| [ruff](https://docs.astral.sh/ruff/) | Linter and formatter |
+| [ty](https://github.com/astral-sh/ty) | Type checker (Astral, replaces mypy) |
+
+---
+
+## Roadmap
+
+### v1 — current (single-pipeline RAG)
+- [x] PDF ingestion: parse, chunk, embed, store
+- [x] Semantic retrieval with ChromaDB
+- [x] LLM-generated answers grounded in retrieved context
+- [x] Source citation panel in UI
+- [x] RAGAS evaluation harness
+- [x] Security: prompt injection detection, file validation
+- [x] Document registry
+
+### v2 — multi-agent (in progress)
+- [ ] LangGraph orchestration layer
+- [ ] Materialist, Idealist, Dualist stance agents
+- [ ] Grounding / adjudication agent
+- [ ] `StanceMemo` and `SynthesisReport` Pydantic schemas
+- [ ] Redesigned Gradio UI exposing the memo + adjudication pipeline
+- [ ] Grounding-fidelity eval
+
+### v3 — corpus pipeline
+- [ ] Web-scanning agent (Semantic Scholar / arXiv) — KGU-104
+- [ ] PDF download and auto-ingestion agent — KGU-105
+- [ ] Eval-generation agent (LLM-authored, corpus-pinned) — KGU-106
+
+### v4 — framework comparison and deeper evals
+- [ ] CrewAI reimplementation for framework comparison
+- [ ] Stance-biased reranking
+- [ ] Cross-model evaluation (generate with one family, judge with another)
+- [ ] Full eval suite across all three question types
+
+---
+
+## Running it
+
+```bash
+# Install
+uv sync
+
+# Configure
+cp .env.example .env
+# add OPENAI_API_KEY to .env
+
+# Run
+python main.py         # http://localhost:7860
+
+# Evaluate (after ingesting at least one doc)
+python scripts/run_eval.py
+
+# Lint / type-check / test
+uv run ruff check .
+uv run ty check
+uv run pytest
+```
+
+---
+
+## Commit convention
+
+Conventional Commits with emoji prefix: `<emoji> <type>[(<scope>)]: <description>`
+
+Install the hook: `git config core.hooksPath .githooks`
+
+| Emoji | Type |
+|---|---|
+| ✨ | `feat` |
+| 🐛 | `fix` |
+| ♻️ | `refactor` |
+| 🧪 | `test` |
+| 📦 | `build` |
+| 👷 | `ci` |
+| 📝 | `docs` |
+| 🔧 | `chore` |
+| ⚡ | `perf` |
+| ⏪ | `revert` |
