@@ -1,5 +1,7 @@
 """Tests for input sanitisation and document validation."""
 
+from pathlib import Path
+
 import pytest
 
 from phil_mind_rag.security import MAX_QUERY_LENGTH, sanitise_query, validate_document
@@ -54,33 +56,33 @@ class TestSanitiseQuery:
 
 
 class TestValidateDocument:
-    def test_valid_pdf_passes(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_valid_pdf_passes(self, tmp_path: Path) -> None:
         pdf = tmp_path / "paper.pdf"
         pdf.write_bytes(b"%PDF-1.4 minimal content")
         validate_document(pdf, allowed_exts={".pdf"}, max_mb=10)  # no exception
 
-    def test_missing_file_raises(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="not found"):
             validate_document(tmp_path / "ghost.pdf", allowed_exts={".pdf"}, max_mb=10)
 
-    def test_wrong_extension_raises(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_wrong_extension_raises(self, tmp_path: Path) -> None:
         txt = tmp_path / "notes.txt"
         txt.write_text("not a pdf")
         with pytest.raises(ValueError, match="Unsupported"):
             validate_document(txt, allowed_exts={".pdf"}, max_mb=10)
 
-    def test_extension_check_is_case_insensitive(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_extension_check_is_case_insensitive(self, tmp_path: Path) -> None:
         pdf = tmp_path / "paper.PDF"
         pdf.write_bytes(b"%PDF-1.4")
         validate_document(pdf, allowed_exts={".pdf"}, max_mb=10)  # no exception
 
-    def test_oversized_file_raises(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_oversized_file_raises(self, tmp_path: Path) -> None:
         big = tmp_path / "huge.pdf"
         big.write_bytes(b"x" * (11 * 1024 * 1024))  # 11 MB
         with pytest.raises(ValueError, match="too large"):
             validate_document(big, allowed_exts={".pdf"}, max_mb=10)
 
-    def test_file_exactly_at_size_limit_passes(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_file_exactly_at_size_limit_passes(self, tmp_path: Path) -> None:
         limit_mb = 5
         exact = tmp_path / "exact.pdf"
         exact.write_bytes(b"x" * (limit_mb * 1024 * 1024))

@@ -63,20 +63,20 @@ class RAGEvaluator:
             for s in samples
         ]
 
-        dataset = EvaluationDataset(samples=ragas_samples)
+        dataset = EvaluationDataset(samples=ragas_samples)  # type: ignore
 
         metrics = [
-            Faithfulness(),
-            AnswerRelevancy(),
-            ContextPrecision(),
-            ContextRecall(),
+            Faithfulness(),  # type: ignore
+            AnswerRelevancy(),  # type: ignore
+            ContextPrecision(),  # type: ignore
+            ContextRecall(),  # type: ignore
         ]
 
         logger.info("Running RAGAS evaluation on %d samples", len(samples))
-        result = ragas_evaluate(dataset=dataset, metrics=metrics)
+        result = ragas_evaluate(dataset=dataset, metrics=metrics)  # type: ignore
 
         def _mean(key: str) -> float:
-            values = [v for v in result[key] if v is not None]
+            values = [v for v in result[key] if v is not None]  # type: ignore
             return sum(values) / len(values) if values else float("nan")
 
         return EvalResult(

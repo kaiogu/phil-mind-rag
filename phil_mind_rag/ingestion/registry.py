@@ -31,7 +31,7 @@ class DocumentRegistry:
         if not self._path.exists():
             return []
         with self._path.open("r", encoding="utf-8") as fh:
-            return json.load(fh)  # type: ignore[no-any-return]
+            return json.load(fh)
 
     def _save(self, records: list[dict[str, Any]]) -> None:
         with self._path.open("w", encoding="utf-8") as fh:

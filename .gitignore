@@ -17,6 +17,9 @@ data/chroma/
 data/raw/
 data/processed/
 
+# Type-checker cache
+.mypy_cache/
+
 # IDE
 .idea/
 .vscode/

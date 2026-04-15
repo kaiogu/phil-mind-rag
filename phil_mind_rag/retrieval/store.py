@@ -66,8 +66,8 @@ class ChromaVectorStore(BaseVectorStore):
         self._collection.add(
             ids=ids,
             documents=[c.text for c in chunks],
-            embeddings=embeddings,
-            metadatas=[c.metadata for c in chunks],  # type: ignore[arg-type]
+            embeddings=embeddings,  # type: ignore
+            metadatas=[c.metadata for c in chunks],
         )
         logger.info("Added %d chunks to ChromaDB", len(chunks))
 
@@ -80,16 +80,16 @@ class ChromaVectorStore(BaseVectorStore):
         )
 
         retrieval_results: list[RetrievalResult] = []
-        documents = results.get("documents", [[]])[0]
-        distances = results.get("distances", [[]])[0]
-        metadatas = results.get("metadatas", [[]])[0]
+        documents = (results.get("documents") or [[]])[0]
+        distances = (results.get("distances") or [[]])[0]
+        metadatas = (results.get("metadatas") or [[]])[0]
 
         for text, dist, meta in zip(documents, distances, metadatas, strict=True):
             retrieval_results.append(
                 RetrievalResult(
                     text=text,
                     score=1.0 - dist,  # cosine distance → similarity
-                    metadata=meta,  # type: ignore[arg-type]
+                    metadata=meta,
                 )
             )
 

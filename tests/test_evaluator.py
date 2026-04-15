@@ -64,11 +64,11 @@ class TestRAGEvaluatorMocked:
         import sys
 
         fake_ragas = types.ModuleType("ragas")
-        fake_ragas.EvaluationDataset = lambda samples: None  # type: ignore[attr-defined]
-        fake_ragas.evaluate = lambda **_: fake_scores  # type: ignore[attr-defined]
+        fake_ragas.EvaluationDataset = lambda samples: None  # type: ignore
+        fake_ragas.evaluate = lambda **_: fake_scores  # type: ignore
 
         fake_schema = types.ModuleType("ragas.dataset_schema")
-        fake_schema.SingleTurnSample = lambda **_: None  # type: ignore[attr-defined]
+        fake_schema.SingleTurnSample = lambda **_: None  # type: ignore
 
         fake_collections = types.ModuleType("ragas.metrics.collections")
         for cls in ("Faithfulness", "AnswerRelevancy", "ContextPrecision", "ContextRecall"):
@@ -98,10 +98,10 @@ class TestRAGEvaluatorMocked:
         import types, sys
 
         fake_ragas = types.ModuleType("ragas")
-        fake_ragas.EvaluationDataset = lambda samples: None  # type: ignore[attr-defined]
-        fake_ragas.evaluate = lambda **_: fake_scores  # type: ignore[attr-defined]
+        fake_ragas.EvaluationDataset = lambda samples: None  # type: ignore
+        fake_ragas.evaluate = lambda **_: fake_scores  # type: ignore
         fake_schema = types.ModuleType("ragas.dataset_schema")
-        fake_schema.SingleTurnSample = lambda **_: None  # type: ignore[attr-defined]
+        fake_schema.SingleTurnSample = lambda **_: None  # type: ignore
         fake_collections = types.ModuleType("ragas.metrics.collections")
         for cls in ("Faithfulness", "AnswerRelevancy", "ContextPrecision", "ContextRecall"):
             setattr(fake_collections, cls, MagicMockClass)
