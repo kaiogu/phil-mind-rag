@@ -16,9 +16,13 @@ wheels/
 data/chroma/
 data/raw/
 data/processed/
+data/registry.json
 
 # Type-checker cache
 .mypy_cache/
+
+# Local agent instructions (developer-specific, not for git)
+CLAUDE.local.md
 
 # IDE
 .idea/
