@@ -99,7 +99,8 @@ class MetadataExtractor:
         if need_author:
             wants.append("author")
 
-        assert self._llm is not None  # narrowing: _try_llm is only called when self._llm is truthy
+        if self._llm is None:  # _try_llm is only called when self._llm is truthy
+            raise RuntimeError("_try_llm called with llm=None")
         prompt = (
             "You are a metadata extractor for academic philosophy papers.\n"
             f"Extract the following fields from the text: {', '.join(wants)}.\n"

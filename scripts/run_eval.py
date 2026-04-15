@@ -23,7 +23,9 @@ from phil_mind_rag.pipeline import RAGPipeline
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run RAGAS evaluation over the pipeline.")
+    parser = argparse.ArgumentParser(
+        description="Run RAGAS evaluation over the pipeline."
+    )
     parser.add_argument(
         "--eval-set",
         type=Path,
@@ -38,7 +40,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
     logger = logging.getLogger("run_eval")
 
     if not args.eval_set.exists():
@@ -53,7 +57,8 @@ def main() -> None:
 
     if pipeline.document_count == 0:
         logger.error(
-            "Vector store is empty. Ingest documents first (e.g. via the Gradio UI or pipeline.ingest())."
+            "Vector store is empty. Ingest documents first "
+            "(e.g. via the Gradio UI or pipeline.ingest())."
         )
         sys.exit(1)
 
