@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from openai import OpenAI
+from typing import TYPE_CHECKING
 
 from phil_mind_rag.agents._llm import generate_structured
 from phil_mind_rag.agents.prompts import stance_prompt
 from phil_mind_rag.agents.schema import StanceMemo
-from phil_mind_rag.agents.state import AgentState
+
+if TYPE_CHECKING:
+    from openai import OpenAI
+
+    from phil_mind_rag.agents.state import AgentState
 
 _MATERIALIST = (
     "Build the strongest charitable case for physicalism. "

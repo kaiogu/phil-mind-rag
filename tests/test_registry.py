@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
 
 

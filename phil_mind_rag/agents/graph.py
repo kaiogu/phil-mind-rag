@@ -5,17 +5,20 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 
 from phil_mind_rag.agents.grounding import run_grounding
-from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 from phil_mind_rag.agents.state import AgentState
-from phil_mind_rag.config import Settings
-from phil_mind_rag.pipeline import RAGPipeline
-from phil_mind_rag.retrieval.store import RetrievalResult
+
+if TYPE_CHECKING:
+    from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport
+    from phil_mind_rag.config import Settings
+    from phil_mind_rag.pipeline import RAGPipeline
+    from phil_mind_rag.retrieval.store import RetrievalResult
 
 
 @dataclass

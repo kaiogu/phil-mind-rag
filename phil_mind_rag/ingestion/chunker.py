@@ -8,8 +8,10 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from phil_mind_rag.ingestion.parser import ParsedDocument, Section
+if TYPE_CHECKING:
+    from phil_mind_rag.ingestion.parser import ParsedDocument, Section
 
 logger = logging.getLogger(__name__)
 
