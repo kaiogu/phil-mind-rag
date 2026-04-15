@@ -35,9 +35,7 @@ class BaseVectorStore(ABC):
         """Persist chunks with their embeddings."""
 
     @abstractmethod
-    def query(
-        self, embedding: list[float], top_k: int = 5
-    ) -> list[RetrievalResult]:
+    def query(self, embedding: list[float], top_k: int = 5) -> list[RetrievalResult]:
         """Return the top-k most similar chunks."""
 
     @abstractmethod
@@ -74,9 +72,7 @@ class ChromaVectorStore(BaseVectorStore):
         )
         logger.info("Added %d chunks to ChromaDB", len(chunks))
 
-    def query(
-        self, embedding: list[float], top_k: int = 5
-    ) -> list[RetrievalResult]:
+    def query(self, embedding: list[float], top_k: int = 5) -> list[RetrievalResult]:
         results = self._collection.query(
             query_embeddings=[embedding],
             n_results=top_k,

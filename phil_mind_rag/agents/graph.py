@@ -31,6 +31,7 @@ class AnalysisResult:
     idealist_memo: StanceMemo
     dualist_memo: StanceMemo
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -8,8 +8,10 @@ from phil_mind_rag.eval.evaluator import EvalResult, EvalSample, RAGEvaluator
 class TestEvalResult:
     def test_summary_contains_all_metric_names(self) -> None:
         result = EvalResult(
-            faithfulness=0.8, answer_relevancy=0.7,
-            context_precision=0.9, context_recall=0.6,
+            faithfulness=0.8,
+            answer_relevancy=0.7,
+            context_precision=0.9,
+            context_recall=0.6,
         )
         summary = result.summary()
         assert "Faithfulness" in summary
@@ -19,8 +21,10 @@ class TestEvalResult:
 
     def test_summary_formats_scores_to_three_decimal_places(self) -> None:
         result = EvalResult(
-            faithfulness=0.85, answer_relevancy=0.725,
-            context_precision=0.9, context_recall=0.6,
+            faithfulness=0.85,
+            answer_relevancy=0.725,
+            context_precision=0.9,
+            context_recall=0.6,
         )
         summary = result.summary()
         assert "0.850" in summary
@@ -79,7 +83,12 @@ class TestRAGEvaluatorMocked:
         fake_schema.SingleTurnSample = lambda **_: None  # type: ignore
 
         fake_collections = types.ModuleType("ragas.metrics.collections")
-        for cls in ("Faithfulness", "AnswerRelevancy", "ContextPrecision", "ContextRecall"):  # noqa: E501
+        for cls in (
+            "Faithfulness",
+            "AnswerRelevancy",
+            "ContextPrecision",
+            "ContextRecall",
+        ):  # noqa: E501
             setattr(fake_collections, cls, MagicMockClass)
 
         monkeypatch.setitem(sys.modules, "ragas", fake_ragas)
@@ -113,7 +122,12 @@ class TestRAGEvaluatorMocked:
         fake_schema = types.ModuleType("ragas.dataset_schema")
         fake_schema.SingleTurnSample = lambda **_: None  # type: ignore
         fake_collections = types.ModuleType("ragas.metrics.collections")
-        for cls in ("Faithfulness", "AnswerRelevancy", "ContextPrecision", "ContextRecall"):  # noqa: E501
+        for cls in (
+            "Faithfulness",
+            "AnswerRelevancy",
+            "ContextPrecision",
+            "ContextRecall",
+        ):  # noqa: E501
             setattr(fake_collections, cls, MagicMockClass)
 
         monkeypatch.setitem(sys.modules, "ragas", fake_ragas)
@@ -125,6 +139,7 @@ class TestRAGEvaluatorMocked:
         assert result.faithfulness == pytest.approx(0.9)  # mean(0.8, 1.0)
         assert result.answer_relevancy == pytest.approx(0.7)  # mean(0.6, 0.8)
         import math
+
         assert math.isnan(result.context_precision)  # all None → nan
         assert result.context_recall == pytest.approx(1.0)
 

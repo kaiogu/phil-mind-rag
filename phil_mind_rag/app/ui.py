@@ -90,8 +90,7 @@ def _format_sources(chunks: list[RetrievalResult]) -> str:
         section = r.metadata.get("section", "?")
         snippet = r.text[:200].replace("\n", " ")
         lines.append(
-            f"**chunk_{i}** — {src} / {section} (score: {r.score:.3f})\n"
-            f"> {snippet}…"
+            f"**chunk_{i}** — {src} / {section} (score: {r.score:.3f})\n> {snippet}…"
         )
     return "\n\n".join(lines)
 
@@ -99,8 +98,15 @@ def _format_sources(chunks: list[RetrievalResult]) -> str:
 # --- Library & upload callbacks (unchanged) --------------------------------
 
 LIBRARY_COLUMNS = [
-    "Title", "Author", "Source File", "Chunks",
-    "Chunk Size", "Chunk Overlap", "Chunker", "Embedding Model", "Ingested At",
+    "Title",
+    "Author",
+    "Source File",
+    "Chunks",
+    "Chunk Size",
+    "Chunk Overlap",
+    "Chunker",
+    "Embedding Model",
+    "Ingested At",
 ]
 
 
@@ -294,9 +300,15 @@ def create_app() -> gr.Blocks:
             library_table = gr.Dataframe(
                 headers=LIBRARY_COLUMNS,
                 datatype=[
-                    "str", "str", "str",
-                    "number", "number", "number",
-                    "str", "str", "str",
+                    "str",
+                    "str",
+                    "str",
+                    "number",
+                    "number",
+                    "number",
+                    "str",
+                    "str",
+                    "str",
                 ],
                 value=handle_refresh,
                 interactive=False,

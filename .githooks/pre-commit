@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-# pre-commit: runs ruff and ty before every commit.
+# pre-commit: format, lint, and type-check before every commit.
 # Install once: git config core.hooksPath .githooks
 set -euo pipefail
 
-echo "🔍 ruff check..."
-uv run ruff check .
+echo "🎨 ruff format..."
+uv run ruff format .
+
+echo "🔍 ruff check (auto-fix)..."
+uv run ruff check --fix .
+
+# Re-stage any files that ruff modified so the commit includes the fixes.
+git add -u
 
 echo "🔍 ty check..."
 uv run ty check

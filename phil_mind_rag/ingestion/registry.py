@@ -13,15 +13,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DocumentRecord:
-    source: str           # PDF filename e.g. "chalmers1995.pdf"
-    title: str            # user-supplied or filename stem
-    author: str           # user-supplied or ""
+    source: str  # PDF filename e.g. "chalmers1995.pdf"
+    title: str  # user-supplied or filename stem
+    author: str  # user-supplied or ""
     chunk_count: int
     chunk_size: int
     chunk_overlap: int
-    chunker: str          # fully-qualified class name
+    chunker: str  # fully-qualified class name
     embedding_model: str
-    ingested_at: str      # ISO-8601 UTC string
+    ingested_at: str  # ISO-8601 UTC string
 
 
 class DocumentRegistry:

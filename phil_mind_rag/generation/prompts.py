@@ -34,8 +34,4 @@ class RAGPrompt:
             for c in contexts
         )
 
-        return (
-            f"{self.system}\n\n"
-            f"### Context\n{context_block}\n\n"
-            f"### Question\n{query}"
-        )
+        return f"{self.system}\n\n### Context\n{context_block}\n\n### Question\n{query}"
