@@ -60,8 +60,8 @@ class TestRAGEvaluatorMocked:
         }
 
         # Patch the lazy imports inside the method
-        import types
         import sys
+        import types
 
         fake_ragas = types.ModuleType("ragas")
         fake_ragas.EvaluationDataset = lambda samples: None  # type: ignore
@@ -95,7 +95,8 @@ class TestRAGEvaluatorMocked:
             "context_recall": [1.0],
         }
 
-        import types, sys
+        import sys
+        import types
 
         fake_ragas = types.ModuleType("ragas")
         fake_ragas.EvaluationDataset = lambda samples: None  # type: ignore

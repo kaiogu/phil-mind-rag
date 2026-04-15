@@ -3,9 +3,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from phil_mind_rag.ingestion.metadata_extractor import ExtractedMetadata, MetadataExtractor
+from phil_mind_rag.ingestion.metadata_extractor import (
+    MetadataExtractor,
+)
 
 
 def _mock_pdf_reader(title: str | None = None, author: str | None = None) -> MagicMock:

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from openai import OpenAI
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 
 def generate_structured[T: BaseModel](

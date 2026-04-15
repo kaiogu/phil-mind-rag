@@ -38,7 +38,17 @@ select = [
     "S",   # bandit — security checks (hardcoded passwords, eval, etc.)
     "B",   # bugbear — common gotchas (mutable defaults, bare except)
     "UP",  # pyupgrade — modern Python 3.12+ syntax
+    "TCH", # type-checking — flag imports that should be under TYPE_CHECKING
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# state.py: LangGraph calls get_type_hints(AgentState) at StateGraph construction time,
+# which evaluates the lazy string annotations from `from __future__ import annotations`.
+# All annotated types must therefore be importable at runtime — moving them to TYPE_CHECKING
+# would cause a NameError inside LangGraph. TCH001 is suppressed for this file only.
+"phil_mind_rag/agents/state.py" = ["TCH001"]
+# tests: assert is the idiomatic pytest assertion — S101 is a false positive here.
+"tests/**" = ["S101"]
 
 [tool.uv]
 package = false

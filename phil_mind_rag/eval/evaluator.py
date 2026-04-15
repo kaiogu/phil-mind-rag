@@ -44,7 +44,8 @@ class RAGEvaluator:
     """Evaluate a RAG pipeline using RAGAS metrics."""
 
     def evaluate(self, samples: list[EvalSample]) -> EvalResult:
-        from ragas import EvaluationDataset, evaluate as ragas_evaluate
+        from ragas import EvaluationDataset
+        from ragas import evaluate as ragas_evaluate
         from ragas.dataset_schema import SingleTurnSample
         from ragas.metrics.collections import (
             AnswerRelevancy,

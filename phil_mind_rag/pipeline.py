@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai import OpenAI
 
-from phil_mind_rag.config import Settings
 from phil_mind_rag.generation.llm import OpenAILLM
 from phil_mind_rag.generation.prompts import RAGPrompt
 from phil_mind_rag.ingestion.chunker import Chunk, SectionAwareChunker
@@ -24,6 +23,11 @@ from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
 from phil_mind_rag.retrieval.retriever import VectorRetriever
 from phil_mind_rag.retrieval.store import ChromaVectorStore, RetrievalResult
 from phil_mind_rag.security import sanitise_query, validate_document
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from phil_mind_rag.config import Settings
 
 logger = logging.getLogger(__name__)
 

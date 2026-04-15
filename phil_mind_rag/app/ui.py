@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Generator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import gradio as gr
 
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
-from phil_mind_rag.agents.schema import (  # SynthesisReport used in format helpers
-    StanceMemo,
-    SynthesisReport,
-)
 from phil_mind_rag.config import Settings, get_settings
 from phil_mind_rag.pipeline import RAGPipeline
-from phil_mind_rag.retrieval.store import RetrievalResult
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from phil_mind_rag.agents.schema import (  # SynthesisReport used in format helpers
+        StanceMemo,
+        SynthesisReport,
+    )
+    from phil_mind_rag.retrieval.store import RetrievalResult
 
 logger = logging.getLogger(__name__)
 

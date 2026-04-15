@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from phil_mind_rag.agents.schema import StanceMemo
-from phil_mind_rag.retrieval.store import RetrievalResult
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from phil_mind_rag.agents.schema import StanceMemo
+    from phil_mind_rag.retrieval.store import RetrievalResult
 
 _STANCE_SYSTEM = (
     "You are a philosopher of mind representing the {stance} position. "

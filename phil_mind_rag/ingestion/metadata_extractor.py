@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from phil_mind_rag.generation.llm import BaseLLM
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from phil_mind_rag.generation.llm import BaseLLM
 
 logger = logging.getLogger(__name__)
 
