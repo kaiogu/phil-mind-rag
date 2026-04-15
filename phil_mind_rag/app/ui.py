@@ -1,4 +1,4 @@
-"""Gradio frontend for the Philosophy of Mind RAG system."""
+"""Gradio frontend for the Philosophy of Mind multi-agent RAG system."""
 
 from __future__ import annotations
 
@@ -8,23 +8,91 @@ from pathlib import Path
 
 import gradio as gr
 
-from phil_mind_rag.config import get_settings
+from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
+from phil_mind_rag.agents.schema import (  # SynthesisReport used in format helpers
+    StanceMemo,
+    SynthesisReport,
+)
+from phil_mind_rag.config import Settings, get_settings
 from phil_mind_rag.pipeline import RAGPipeline
+from phil_mind_rag.retrieval.store import RetrievalResult
 
 logger = logging.getLogger(__name__)
 
-# Lazy singleton so the pipeline is only built once.
+# Lazy singletons — built once on first use.
 _pipeline: RAGPipeline | None = None
+_settings: Settings | None = None
+
+
+def _get_settings() -> Settings:
+    global _settings  # noqa: PLW0603
+    if _settings is None:
+        _settings = get_settings()
+    return _settings
 
 
 def _get_pipeline() -> RAGPipeline:
     global _pipeline  # noqa: PLW0603
     if _pipeline is None:
-        _pipeline = RAGPipeline(get_settings())
+        _pipeline = RAGPipeline(_get_settings())
     return _pipeline
 
 
-# --- Callbacks ----------------------------------------------------------
+# --- Format helpers -------------------------------------------------------
+
+
+def _format_stance_memo(memo: StanceMemo) -> str:
+    lines = [f"**Thesis:** {memo.thesis}", f"\n**Confidence:** {memo.confidence:.0%}"]
+    lines.append("\n**Supporting Arguments:**")
+    for arg in memo.supporting_arguments:
+        lines.append(f"- {arg}")
+    lines.append("\n**Objections to Rivals:**")
+    for obj in memo.attack_on_rivals:
+        lines.append(f"- {obj}")
+    lines.append(f"\n**Uncertainty:** {memo.uncertainty_notes}")
+    if memo.citations:
+        lines.append(f"\n**Citations:** {', '.join(memo.citations)}")
+    return "\n".join(lines)
+
+
+def _format_grounding(report: SynthesisReport) -> str:
+    if not report.unsupported_claims:
+        return "_All cited claims are supported by the retrieved evidence._"
+    lines = ["**Flagged Claims:**\n"]
+    for claim in report.unsupported_claims:
+        flag = "✓" if claim.supported else "✗"
+        lines.append(f"{flag} **[{claim.stance}]** {claim.text}\n\n   _{claim.note}_")
+    return "\n\n".join(lines)
+
+
+def _format_synthesis(report: SynthesisReport) -> str:
+    lines = ["**Areas of Disagreement:**"]
+    for area in report.areas_of_disagreement:
+        lines.append(f"- {area}")
+    if report.strongest_arguments:
+        lines.append("\n**Strongest Supported Arguments:**")
+        for stance, arg in report.strongest_arguments.items():
+            lines.append(f"- **{stance.capitalize()}:** {arg}")
+    lines.append(f"\n**Synthesis:**\n\n{report.synthesis}")
+    return "\n".join(lines)
+
+
+def _format_sources(chunks: list[RetrievalResult]) -> str:
+    if not chunks:
+        return ""
+    lines = ["**Retrieved sources:**\n"]
+    for i, r in enumerate(chunks):
+        src = r.metadata.get("source", "?")
+        section = r.metadata.get("section", "?")
+        snippet = r.text[:200].replace("\n", " ")
+        lines.append(
+            f"**chunk_{i}** — {src} / {section} (score: {r.score:.3f})\n"
+            f"> {snippet}…"
+        )
+    return "\n\n".join(lines)
+
+
+# --- Library & upload callbacks (unchanged) --------------------------------
 
 LIBRARY_COLUMNS = [
     "Title", "Author", "Source File", "Chunks",
@@ -42,16 +110,15 @@ def handle_refresh() -> list[list[object]]:
             r.chunk_count,
             r.chunk_size,
             r.chunk_overlap,
-            r.chunker.split(".")[-1],                    # class name only
+            r.chunker.split(".")[-1],
             r.embedding_model,
-            r.ingested_at[:19].replace("T", " "),        # "2026-03-02 14:05:00"
+            r.ingested_at[:19].replace("T", " "),
         ]
         for r in records
     ]
 
 
 def handle_extract_metadata(file: str | None) -> tuple[str, str]:
-    """Return (title, author) extracted from the uploaded PDF."""
     if file is None:
         return "", ""
     try:
@@ -67,7 +134,6 @@ def handle_upload(
     title: str | None,
     author: str | None,
 ) -> Generator[str, None, None]:
-    """Ingest an uploaded PDF, yielding status updates to the UI."""
     if file is None:
         yield "No file uploaded."
         return
@@ -102,48 +168,91 @@ def handle_upload(
         yield "An unexpected error occurred during ingestion."
 
 
-def handle_query(question: str) -> tuple[str, str]:
-    """Answer a question and return (answer_markdown, sources_markdown)."""
+# --- Analysis callback ----------------------------------------------------
+
+
+def handle_analysis(
+    question: str,
+) -> tuple[str, str, str, str, str, str]:
+    """Run multi-agent analysis.
+
+    Returns (materialist, idealist, dualist, grounding, synthesis, sources).
+    """
     if not question.strip():
-        return "Please enter a question.", ""
+        empty = "Please enter a question."
+        return empty, empty, empty, empty, empty, ""
 
     try:
-        answer, sources = _get_pipeline().query_with_sources(question)
-        sources_md = _format_sources(sources)
-        return answer, sources_md
-    except ValueError as exc:
-        return f"Input error: {exc}", ""
-    except Exception:
-        logger.exception("Query failed")
-        return "An unexpected error occurred while generating the answer.", ""
-
-
-def _format_sources(sources: list) -> str:
-    if not sources:
-        return ""
-    lines = ["**Retrieved sources:**\n"]
-    for i, r in enumerate(sources, 1):
-        src = r.metadata.get("source", "?")
-        section = r.metadata.get("section", "?")
-        score = r.score
-        snippet = r.text[:200].replace("\n", " ")
-        lines.append(
-            f"{i}. **{src} — {section}** (score: {score:.3f})\n"
-            f"   > {snippet}…"
+        pipeline = _get_pipeline()
+        settings = _get_settings()
+        result: AnalysisResult = run_analysis(question, pipeline, settings)
+        return (
+            _format_stance_memo(result.materialist_memo),
+            _format_stance_memo(result.idealist_memo),
+            _format_stance_memo(result.dualist_memo),
+            _format_grounding(result.report),
+            _format_synthesis(result.report),
+            _format_sources(result.chunks),
         )
-    return "\n\n".join(lines)
+    except ValueError as exc:
+        err = f"Input error: {exc}"
+        return err, err, err, err, err, ""
+    except Exception:
+        logger.exception("Analysis failed")
+        err = "An unexpected error occurred during analysis."
+        return err, err, err, err, err, ""
 
 
-# --- UI -----------------------------------------------------------------
+# --- UI -------------------------------------------------------------------
 
 
 def create_app() -> gr.Blocks:
     """Build and return the Gradio Blocks app."""
-    with gr.Blocks(title="Philosophy of Mind RAG") as app:
+    with gr.Blocks(title="Philosophy of Mind — Multi-Agent RAG") as app:
         gr.Markdown(
-            "# Philosophy of Mind RAG\n"
-            "Upload academic papers (PDF) and ask questions about them."
+            "# Philosophy of Mind — Multi-Agent RAG\n"
+            "Upload academic papers (PDF), then ask a question to receive "
+            "three grounded stance memos and an adjudicated synthesis report."
         )
+
+        with gr.Tab("Ask"):
+            question_input = gr.Textbox(
+                label="Question",
+                placeholder="e.g. What is the hard problem of consciousness?",
+                lines=2,
+            )
+            ask_btn = gr.Button("Analyse", variant="primary")
+
+            gr.Markdown("### Stance Memos")
+            with gr.Tabs():
+                with gr.Tab("Materialist"):
+                    mat_output = gr.Markdown(label="Materialist memo")
+                with gr.Tab("Idealist"):
+                    ide_output = gr.Markdown(label="Idealist memo")
+                with gr.Tab("Dualist"):
+                    dua_output = gr.Markdown(label="Dualist memo")
+
+            gr.Markdown("### Grounding")
+            grounding_output = gr.Markdown(label="Grounding")
+
+            gr.Markdown("### Synthesis")
+            synthesis_output = gr.Markdown(label="Synthesis")
+
+            gr.Markdown("### Sources")
+            sources_output = gr.Markdown(label="Sources")
+
+            ask_btn.click(
+                fn=handle_analysis,
+                inputs=question_input,
+                outputs=[
+                    mat_output,
+                    ide_output,
+                    dua_output,
+                    grounding_output,
+                    synthesis_output,
+                    sources_output,
+                ],
+            )
 
         with gr.Tab("Upload"):
             title_input = gr.Textbox(
@@ -175,22 +284,6 @@ def create_app() -> gr.Blocks:
                 outputs=upload_output,
             )
 
-        with gr.Tab("Ask"):
-            question_input = gr.Textbox(
-                label="Question",
-                placeholder="e.g. What is the hard problem of consciousness?",
-                lines=2,
-            )
-            ask_btn = gr.Button("Ask")
-            answer_output = gr.Markdown(label="Answer")
-            sources_output = gr.Markdown(label="Sources")
-
-            ask_btn.click(
-                fn=handle_query,
-                inputs=question_input,
-                outputs=[answer_output, sources_output],
-            )
-
         with gr.Tab("Library"):
             gr.Markdown("### Ingested Papers")
             refresh_btn = gr.Button("Refresh")
@@ -201,7 +294,7 @@ def create_app() -> gr.Blocks:
                     "number", "number", "number",
                     "str", "str", "str",
                 ],
-                value=handle_refresh,   # called on page load
+                value=handle_refresh,
                 interactive=False,
                 wrap=True,
             )
@@ -213,7 +306,7 @@ def create_app() -> gr.Blocks:
 def main() -> None:
     """Entry point for `python -m phil_mind_rag.app.ui`."""
     logging.basicConfig(level=logging.INFO)
-    settings = get_settings()
+    settings = _get_settings()
     app = create_app()
     app.launch(server_port=settings.gradio_server_port)
 
