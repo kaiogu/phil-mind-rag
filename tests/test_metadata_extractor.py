@@ -20,7 +20,9 @@ def _mock_pdf_reader(title: str | None = None, author: str | None = None) -> Mag
 
 
 class TestMetadataExtractor:
-    def test_returns_pdf_metadata_when_both_fields_present(self, tmp_path: Path) -> None:
+    def test_returns_pdf_metadata_when_both_fields_present(
+        self, tmp_path: Path
+    ) -> None:
         pdf = tmp_path / "paper.pdf"
         pdf.write_bytes(b"%PDF")
         reader = _mock_pdf_reader(title="Being and Time", author="Heidegger")
@@ -72,7 +74,9 @@ class TestMetadataExtractor:
         assert result.title == "Some Title"
         assert result.author is None
 
-    def test_llm_failure_is_swallowed_and_returns_pdf_metadata(self, tmp_path: Path) -> None:
+    def test_llm_failure_is_swallowed_and_returns_pdf_metadata(
+        self, tmp_path: Path
+    ) -> None:
         pdf = tmp_path / "paper.pdf"
         pdf.write_bytes(b"%PDF")
         reader = _mock_pdf_reader(title=None, author=None)

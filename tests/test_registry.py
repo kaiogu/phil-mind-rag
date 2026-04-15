@@ -5,7 +5,9 @@ from pathlib import Path
 from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
 
 
-def _record(source: str = "paper.pdf", title: str = "Test Paper", **kwargs: str | int) -> DocumentRecord:
+def _record(
+    source: str = "paper.pdf", title: str = "Test Paper", **kwargs: str | int
+) -> DocumentRecord:
     defaults: dict[str, str | int] = dict(
         source=source,
         title=title,

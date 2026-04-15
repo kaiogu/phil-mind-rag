@@ -141,11 +141,15 @@ class TestIngest:
 
         assert count == 7
 
-    def test_returns_zero_when_no_chunks_produced(self, pipeline, tmp_path: Path) -> None:
+    def test_returns_zero_when_no_chunks_produced(
+        self, pipeline, tmp_path: Path
+    ) -> None:
         pdf = tmp_path / "empty.pdf"
         pdf.write_bytes(b"%PDF")
 
-        pipeline._parser.parse.return_value = ParsedDocument(source="empty.pdf", sections=[])
+        pipeline._parser.parse.return_value = ParsedDocument(
+            source="empty.pdf", sections=[]
+        )
         pipeline._chunker.chunk.return_value = []
 
         with patch.object(pipeline, "_embed_batch", return_value=[]):
