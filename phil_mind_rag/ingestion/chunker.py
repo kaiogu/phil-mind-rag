@@ -50,9 +50,7 @@ class SectionAwareChunker(BaseChunker):
             section_chunks = self._split_section(section, document.source)
             chunks.extend(section_chunks)
 
-        logger.info(
-            "Chunked '%s' into %d chunks", document.source, len(chunks)
-        )
+        logger.info("Chunked '%s' into %d chunks", document.source, len(chunks))
         return chunks
 
     def _split_section(self, section: Section, source: str) -> list[Chunk]:

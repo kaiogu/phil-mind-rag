@@ -30,7 +30,8 @@ class TestRAGPrompt:
 
     def test_prompt_includes_all_contexts(self) -> None:
         contexts = [
-            _result("First passage."), _result("Second passage.", section="Conclusion")
+            _result("First passage."),
+            _result("Second passage.", section="Conclusion"),
         ]
         built = RAGPrompt().build("Q?", contexts)
         assert "First passage." in built

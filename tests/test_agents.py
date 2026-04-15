@@ -98,8 +98,11 @@ class TestSchema:
 
     def test_claim_allows_none_source(self) -> None:
         claim = Claim(
-            text="Unsupported claim", stance="idealist",
-            supported=False, source_chunk_id=None, note="No evidence.",
+            text="Unsupported claim",
+            stance="idealist",
+            supported=False,
+            source_chunk_id=None,
+            note="No evidence.",
         )
         assert claim.source_chunk_id is None
 
@@ -368,6 +371,7 @@ class TestStartup:
             # build_graph() calls StateGraph(AgentState) which calls
             # get_type_hints(AgentState) — this is the call that failed.
             from phil_mind_rag.agents.graph import build_graph
+
             graph = build_graph(mock_pipeline, mock_settings)
 
         assert graph is not None

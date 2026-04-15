@@ -1,6 +1,5 @@
 """Tests for SectionAwareChunker."""
 
-
 from phil_mind_rag.ingestion.chunker import SectionAwareChunker
 from phil_mind_rag.ingestion.parser import ParsedDocument, Section
 

@@ -52,9 +52,7 @@ def run_idealist(
     return {"idealist_memo": memo}
 
 
-def run_dualist(
-    state: AgentState, client: OpenAI, model: str
-) -> dict[str, StanceMemo]:
+def run_dualist(state: AgentState, client: OpenAI, model: str) -> dict[str, StanceMemo]:
     system, user = stance_prompt(
         "dualist", _DUALIST, state["question"], state["chunks"]
     )

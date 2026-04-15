@@ -57,12 +57,8 @@ def validate_document(path: Path, *, allowed_exts: set[str], max_mb: int) -> Non
 
     suffix = path.suffix.lower()
     if suffix not in allowed_exts:
-        raise ValueError(
-            f"Unsupported file type '{suffix}'. Allowed: {allowed_exts}"
-        )
+        raise ValueError(f"Unsupported file type '{suffix}'. Allowed: {allowed_exts}")
 
     size_mb = path.stat().st_size / (1024 * 1024)
     if size_mb > max_mb:
-        raise ValueError(
-            f"File too large ({size_mb:.1f} MB). Maximum: {max_mb} MB."
-        )
+        raise ValueError(f"File too large ({size_mb:.1f} MB). Maximum: {max_mb} MB.")

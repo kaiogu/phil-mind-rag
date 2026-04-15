@@ -41,6 +41,7 @@ def pipeline(mock_settings: MagicMock):
         patch("phil_mind_rag.pipeline.MetadataExtractor"),
     ):
         from phil_mind_rag.pipeline import RAGPipeline
+
         p = RAGPipeline(mock_settings)
 
     # Replace internal components with controllable mocks
@@ -125,9 +126,9 @@ class TestIngest:
         pdf = tmp_path / "paper.pdf"
         pdf.write_bytes(b"%PDF")
 
-        doc = ParsedDocument(source="paper.pdf", sections=[
-            Section(title="S", text="text", metadata={})
-        ])
+        doc = ParsedDocument(
+            source="paper.pdf", sections=[Section(title="S", text="text", metadata={})]
+        )
         chunks = [Chunk(text="chunk", metadata={})] * 7
         embeddings = [[0.1] * 3] * 7
 
