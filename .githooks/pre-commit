@@ -15,4 +15,7 @@ git add -u
 echo "🔍 ty check..."
 uv run ty check
 
+echo "🧪 pytest..."
+uv run pytest --tb=short -q
+
 echo "✅ pre-commit checks passed"
