@@ -47,25 +47,43 @@ def _get_pipeline() -> RAGPipeline:
 
 def _format_stance_memo(memo: StanceMemo) -> str:
     lines = [f"**Thesis:** {memo.thesis}", f"\n**Confidence:** {memo.confidence:.0%}"]
-    lines.append("\n**Supporting Arguments:**")
-    for arg in memo.supporting_arguments:
-        lines.append(f"- {arg}")
-    lines.append("\n**Objections to Rivals:**")
-    for obj in memo.attack_on_rivals:
-        lines.append(f"- {obj}")
+    lines.append("\n**Supporting Claims:**")
+    for claim in memo.supporting_claims:
+        citations = ", ".join(claim.citations) if claim.citations else "none"
+        lines.append(f"- {claim.text} _[{citations}]_")
+    lines.append("\n**Critiques of Rivals:**")
+    for claim in memo.rival_critiques:
+        citations = ", ".join(claim.citations) if claim.citations else "none"
+        lines.append(f"- {claim.text} _[{citations}]_")
     lines.append(f"\n**Uncertainty:** {memo.uncertainty_notes}")
-    if memo.citations:
-        lines.append(f"\n**Citations:** {', '.join(memo.citations)}")
     return "\n".join(lines)
 
 
 def _format_grounding(report: SynthesisReport) -> str:
+    lines = []
+    if report.supported_claims:
+        lines.append("**Supported Claims:**\n")
+        for claim in report.supported_claims:
+            citations = ", ".join(claim.citations) if claim.citations else "none"
+            lines.append(
+                "✓ "
+                f"**[{claim.stance}]** {claim.text} _[{citations}]_\n\n"
+                f"   _{claim.note}_"
+            )
     if not report.unsupported_claims:
+        if lines:
+            lines.append(
+                "\n\n_All remaining cited claims are supported by the "
+                "retrieved evidence._"
+            )
+            return "\n\n".join(lines)
         return "_All cited claims are supported by the retrieved evidence._"
-    lines = ["**Flagged Claims:**\n"]
+    lines.append("\n\n**Flagged Claims:**\n")
     for claim in report.unsupported_claims:
-        flag = "✓" if claim.supported else "✗"
-        lines.append(f"{flag} **[{claim.stance}]** {claim.text}\n\n   _{claim.note}_")
+        citations = ", ".join(claim.citations) if claim.citations else "none"
+        lines.append(
+            f"✗ **[{claim.stance}]** {claim.text} _[{citations}]_\n\n   _{claim.note}_"
+        )
     return "\n\n".join(lines)
 
 
@@ -77,6 +95,8 @@ def _format_synthesis(report: SynthesisReport) -> str:
         lines.append("\n**Strongest Supported Arguments:**")
         for stance, arg in report.strongest_arguments.items():
             lines.append(f"- **{stance.capitalize()}:** {arg}")
+    if report.decisive_chunks:
+        lines.append(f"\n**Decisive Evidence:** {', '.join(report.decisive_chunks)}")
     lines.append(f"\n**Synthesis:**\n\n{report.synthesis}")
     return "\n".join(lines)
 
@@ -183,20 +203,22 @@ def handle_upload(
 
 def handle_analysis(
     question: str,
-) -> tuple[str, str, str, str, str, str]:
+) -> tuple[str, str, str, str, str, str, str]:
     """Run multi-agent analysis.
 
-    Returns (materialist, idealist, dualist, grounding, synthesis, sources).
+    Returns
+    (baseline, materialist, idealist, dualist, grounding, synthesis, sources).
     """
     if not question.strip():
         empty = "Please enter a question."
-        return empty, empty, empty, empty, empty, ""
+        return empty, empty, empty, empty, empty, empty, ""
 
     try:
         pipeline = _get_pipeline()
         settings = _get_settings()
         result: AnalysisResult = run_analysis(question, pipeline, settings)
         return (
+            result.baseline_answer,
             _format_stance_memo(result.materialist_memo),
             _format_stance_memo(result.idealist_memo),
             _format_stance_memo(result.dualist_memo),
@@ -206,11 +228,11 @@ def handle_analysis(
         )
     except ValueError as exc:
         err = f"Input error: {exc}"
-        return err, err, err, err, err, ""
+        return err, err, err, err, err, err, ""
     except Exception:
         logger.exception("Analysis failed")
         err = "An unexpected error occurred during analysis."
-        return err, err, err, err, err, ""
+        return err, err, err, err, err, err, ""
 
 
 # --- UI -------------------------------------------------------------------
@@ -232,6 +254,9 @@ def create_app() -> gr.Blocks:
                 lines=2,
             )
             ask_btn = gr.Button("Analyse", variant="primary")
+
+            gr.Markdown("### Single-Agent Baseline")
+            baseline_output = gr.Markdown(label="Baseline answer")
 
             gr.Markdown("### Stance Memos")
             with gr.Tabs():
@@ -255,6 +280,7 @@ def create_app() -> gr.Blocks:
                 fn=handle_analysis,
                 inputs=question_input,
                 outputs=[
+                    baseline_output,
                     mat_output,
                     ide_output,
                     dua_output,
