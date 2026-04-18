@@ -13,8 +13,6 @@ from phil_mind_rag.config import Settings, get_settings
 from phil_mind_rag.pipeline import RAGPipeline
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-
     from phil_mind_rag.agents.schema import (  # SynthesisReport used in format helpers
         StanceMemo,
         SynthesisReport,
@@ -163,7 +161,7 @@ def handle_upload(
     file: str | None,
     title: str | None,
     author: str | None,
-) -> Generator[str, None, None]:
+):
     if file is None:
         yield "No file uploaded."
         return
