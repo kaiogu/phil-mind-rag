@@ -23,6 +23,7 @@ data/registry.json
 
 # Local agent instructions (developer-specific, not for git)
 CLAUDE.local.md
+.codex
 
 # IDE
 .idea/
