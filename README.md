@@ -226,6 +226,9 @@ python main.py         # http://localhost:7860
 # Evaluate (after ingesting at least one doc)
 python scripts/run_eval.py
 
+# Live paid-provider smoke test for source discovery
+make test-paid-api
+
 # Lint / type-check / test
 uv run ruff check .
 uv run ty check

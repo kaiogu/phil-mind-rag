@@ -7,13 +7,25 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import gradio as gr
+from openai import OpenAI
 
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
+from phil_mind_rag.agents.paper_tools import (
+    DownloadJob,
+    discover_sources,
+    download_sources,
+)
+from phil_mind_rag.agents.schema import SourceRecommendation
+from phil_mind_rag.agents.source_search import (
+    OpenAIWebSearchProvider,
+    default_source_providers,
+)
 from phil_mind_rag.config import Settings, get_settings
 from phil_mind_rag.pipeline import RAGPipeline
 
 if TYPE_CHECKING:
     from phil_mind_rag.agents.schema import (  # SynthesisReport used in format helpers
+        SourceDiscoveryReport,
         StanceMemo,
         SynthesisReport,
     )
@@ -113,6 +125,73 @@ def _format_sources(chunks: list[RetrievalResult]) -> str:
     return "\n\n".join(lines)
 
 
+def _format_discovery_report(
+    report: SourceDiscoveryReport,
+    *,
+    web_search_enabled: bool,
+) -> str:
+    lines = [f"**Search Query:** {report.search_query}", "", "**Recommendations:**"]
+    for recommendation in report.recommendations:
+        lines.append(
+            f"- **[{recommendation.priority}] {recommendation.title}** "
+            f"({recommendation.source_type})"
+        )
+        lines.append(f"  {recommendation.rationale}")
+        lines.append(f"  Relevance: {recommendation.relevance_to_question}")
+        lines.append(f"  Suggested use: {recommendation.suggested_use}")
+        lines.append(f"  Access: {recommendation.access_status}")
+        if recommendation.acquisition_note:
+            lines.append(f"  Acquisition note: {recommendation.acquisition_note}")
+        if recommendation.source_url:
+            lines.append(f"  URL: {recommendation.source_url}")
+    if report.gaps_or_followups:
+        lines.append("")
+        lines.append("**Gaps / Follow-Ups:**")
+        for gap in report.gaps_or_followups:
+            lines.append(f"- {gap}")
+    if not web_search_enabled:
+        lines.append("")
+        lines.append(
+            "_Normal web search is not configured. Enable the OpenAI web-search "
+            "provider to add books, blogs, and other web results alongside "
+            "OpenAlex._"
+        )
+    return "\n".join(lines)
+
+
+def _build_download_jobs(
+    recommendations: list[SourceRecommendation],
+) -> list[DownloadJob]:
+    return [
+        DownloadJob(
+            title=recommendation.title,
+            source_url=recommendation.source_url,
+            download_url=recommendation.download_url,
+            access_status=recommendation.access_status,
+            access_note=recommendation.acquisition_note,
+        )
+        for recommendation in recommendations
+    ]
+
+
+def _format_acquisition_results(results: list) -> str:
+    lines = ["**Acquisition Results:**"]
+    for result in results:
+        if result.success:
+            extra = (
+                f" — ingested {result.ingested_chunks} chunks"
+                if result.ingested_chunks is not None
+                else ""
+            )
+            lines.append(f"- Downloaded **{result.title}**{extra}.")
+            continue
+        if result.skipped:
+            lines.append(f"- Skipped **{result.title}**: {result.skip_reason}")
+            continue
+        lines.append(f"- Failed **{result.title}**: {result.error}")
+    return "\n".join(lines)
+
+
 # --- Library & upload callbacks (unchanged) --------------------------------
 
 LIBRARY_COLUMNS = [
@@ -194,6 +273,69 @@ def handle_upload(
     except Exception:
         logger.exception("Ingestion failed for %s", path)
         yield "An unexpected error occurred during ingestion."
+
+
+def handle_discover_sources(
+    field: str,
+    question: str,
+    search_query: str,
+) -> tuple[str, list[dict[str, object]]]:
+    if not field.strip() or not question.strip():
+        return "Please enter both a field and a discovery question.", []
+
+    settings = _get_settings()
+    providers = default_source_providers(settings)
+    client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
+    provider_names = {provider.__class__.__name__ for provider in providers}
+
+    try:
+        report = discover_sources(
+            field=field,
+            question=question,
+            providers=providers,
+            client=client,
+            model=settings.openai_chat_model,
+            search_query=search_query or None,
+        )
+        return (
+            _format_discovery_report(
+                report,
+                web_search_enabled=OpenAIWebSearchProvider.__name__ in provider_names,
+            ),
+            [recommendation.model_dump() for recommendation in report.recommendations],
+        )
+    except ValueError as exc:
+        return f"Input error: {exc}", []
+    except Exception:
+        logger.exception("Source discovery failed")
+        return "An unexpected error occurred during source discovery.", []
+
+
+def handle_acquire_sources(
+    recommendations_data: list[dict[str, object]] | None,
+) -> str:
+    if not recommendations_data:
+        return "No discovered sources are available yet."
+
+    recommendations = [
+        SourceRecommendation.model_validate(item) for item in recommendations_data
+    ]
+    jobs = _build_download_jobs(recommendations)
+    settings = _get_settings()
+    pipeline = _get_pipeline()
+
+    try:
+        results = download_sources(
+            jobs=jobs,
+            output_dir=settings.source_download_dir,
+            pipeline=pipeline,
+        )
+        return _format_acquisition_results(results)
+    except ValueError as exc:
+        return f"Input error: {exc}"
+    except Exception:
+        logger.exception("Source acquisition failed")
+        return "An unexpected error occurred during source acquisition."
 
 
 # --- Analysis callback ----------------------------------------------------
@@ -288,7 +430,44 @@ def create_app() -> gr.Blocks:
                 ],
             )
 
-        with gr.Tab("Upload"):
+        with gr.Tab("Add Sources"):
+            gr.Markdown("### Discover Sources")
+            field_input = gr.Textbox(
+                label="Field",
+                placeholder="e.g. philosophy of mind",
+                value="",
+            )
+            discovery_question_input = gr.Textbox(
+                label="Discovery Question",
+                placeholder=(
+                    "e.g. What are the most important sources on the hard "
+                    "problem of consciousness?"
+                ),
+                lines=2,
+            )
+            search_query_input = gr.Textbox(
+                label="Search Query (optional)",
+                placeholder="e.g. hard problem consciousness seminal papers books",
+                value="",
+            )
+            discover_btn = gr.Button("Discover Sources", variant="primary")
+            discovery_output = gr.Markdown(label="Discovery Results")
+            discovered_sources_state = gr.State(value=[])
+            acquire_btn = gr.Button("Acquire Open Sources")
+            acquisition_output = gr.Markdown(label="Acquisition Status")
+
+            discover_btn.click(
+                fn=handle_discover_sources,
+                inputs=[field_input, discovery_question_input, search_query_input],
+                outputs=[discovery_output, discovered_sources_state],
+            )
+            acquire_btn.click(
+                fn=handle_acquire_sources,
+                inputs=discovered_sources_state,
+                outputs=acquisition_output,
+            )
+
+            gr.Markdown("### Manual PDF Upload")
             title_input = gr.Textbox(
                 label="Title (optional)",
                 placeholder="e.g. Facing Up to the Problem of Consciousness",
@@ -309,8 +488,8 @@ def create_app() -> gr.Blocks:
                 inputs=file_input,
                 outputs=[title_input, author_input],
             )
-            upload_btn = gr.Button("Ingest")
-            upload_output = gr.Markdown(label="Status")
+            upload_btn = gr.Button("Ingest PDF")
+            upload_output = gr.Markdown(label="Upload Status")
 
             upload_btn.click(
                 fn=handle_upload,
