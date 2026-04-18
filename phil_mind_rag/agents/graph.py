@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 class AnalysisResult:
     """Full output of a multi-agent analysis run."""
 
+    baseline_answer: str
     report: SynthesisReport
     chunks: list[RetrievalResult]
     materialist_memo: StanceMemo
@@ -96,7 +97,10 @@ def run_analysis(
     if report is None or mat is None or ide is None or dua is None:
         raise RuntimeError("One or more agents returned no output")
 
+    baseline_answer = pipeline.answer_from_contexts(question, final["chunks"])
+
     return AnalysisResult(
+        baseline_answer=baseline_answer,
         report=report,
         chunks=final["chunks"],
         materialist_memo=mat,

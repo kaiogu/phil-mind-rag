@@ -153,6 +153,18 @@ class RAGPipeline:
         answer, _ = self.query_with_sources(question, top_k=top_k)
         return answer
 
+    def answer_from_contexts(
+        self, question: str, contexts: list[RetrievalResult]
+    ) -> str:
+        """Generate an answer from a pre-retrieved context set."""
+        clean_query = sanitise_query(question)
+
+        if not contexts:
+            return "No relevant context found for your question."
+
+        prompt = self._prompt.build(clean_query, contexts)
+        return self._llm.generate(prompt)
+
     def query_with_sources(
         self, question: str, top_k: int = 5
     ) -> tuple[str, list[RetrievalResult]]:
@@ -161,12 +173,7 @@ class RAGPipeline:
         contexts: list[RetrievalResult] = self._retriever.retrieve(
             clean_query, top_k=top_k
         )
-
-        if not contexts:
-            return "No relevant context found for your question.", []
-
-        prompt = self._prompt.build(clean_query, contexts)
-        return self._llm.generate(prompt), contexts
+        return self.answer_from_contexts(clean_query, contexts), contexts
 
     def retrieve(self, question: str, top_k: int = 5) -> list[RetrievalResult]:
         """Retrieve contexts without generating — useful for eval & debug."""

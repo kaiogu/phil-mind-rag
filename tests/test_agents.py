@@ -12,7 +12,12 @@ import pytest
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.prompts import grounding_prompt, stance_prompt
-from phil_mind_rag.agents.schema import Claim, StanceMemo, SynthesisReport
+from phil_mind_rag.agents.schema import (
+    Claim,
+    EvidenceClaim,
+    StanceMemo,
+    SynthesisReport,
+)
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 from phil_mind_rag.agents.state import AgentState
 from phil_mind_rag.retrieval.store import RetrievalResult
@@ -41,11 +46,20 @@ def stub_memo() -> StanceMemo:
     return StanceMemo(
         stance="materialist",
         thesis="Consciousness is a physical process.",
-        supporting_arguments=["Neural correlates of consciousness exist."],
-        attack_on_rivals=["Idealism lacks empirical support."],
+        supporting_claims=[
+            EvidenceClaim(
+                text="Neural correlates of consciousness exist.",
+                citations=["chunk_0"],
+            )
+        ],
+        rival_critiques=[
+            EvidenceClaim(
+                text="Idealism lacks empirical support.",
+                citations=["chunk_0"],
+            )
+        ],
         confidence=0.8,
         uncertainty_notes="The hard problem remains.",
-        citations=["chunk_0"],
     )
 
 
@@ -64,11 +78,23 @@ def stub_report() -> SynthesisReport:
                 text="Consciousness is purely physical.",
                 stance="materialist",
                 supported=False,
+                citations=["chunk_0"],
                 source_chunk_id=None,
                 note="No chunk supports this without qualification.",
             )
         ],
+        supported_claims=[
+            Claim(
+                text="Qualia resist easy reduction.",
+                stance="idealist",
+                supported=True,
+                citations=["chunk_1"],
+                source_chunk_id="chunk_1",
+                note="Directly stated in the retrieved context.",
+            )
+        ],
         synthesis="The hard problem remains genuinely open.",
+        decisive_chunks=["chunk_1"],
         source_chunks_used=["chunk_0", "chunk_1"],
     )
 
@@ -87,6 +113,7 @@ class TestSchema:
             text="X causes Y",
             stance="materialist",
             supported=True,
+            citations=["chunk_0"],
             source_chunk_id="chunk_0",
             note="Directly cited.",
         )
@@ -101,6 +128,7 @@ class TestSchema:
             text="Unsupported claim",
             stance="idealist",
             supported=False,
+            citations=[],
             source_chunk_id=None,
             note="No evidence.",
         )
@@ -149,6 +177,7 @@ class TestPrompts:
         _, user = grounding_prompt("Q?", sample_chunks, [stub_memo])
         assert "chunk_0" in user
         assert "chunk_1" in user
+        assert "Neural correlates of consciousness exist." in user
 
 
 # --- Stance node tests --------------------------------------------------
@@ -256,6 +285,44 @@ class TestGroundingNode:
             result = run_grounding(state, client, "gpt-4o-mini")
         assert result["report"] is not None
 
+    def test_run_grounding_flags_unknown_chunk_ids(
+        self,
+        sample_chunks: list[RetrievalResult],
+        stub_report: SynthesisReport,
+    ) -> None:
+        state = AgentState(
+            question="Q?",
+            chunks=sample_chunks,
+            materialist_memo=StanceMemo(
+                stance="materialist",
+                thesis="T",
+                supporting_claims=[
+                    EvidenceClaim(
+                        text="Bad citation claim",
+                        citations=["chunk_99"],
+                    )
+                ],
+                rival_critiques=[],
+                confidence=0.5,
+                uncertainty_notes="U",
+            ),
+            idealist_memo=None,
+            dualist_memo=None,
+            report=None,
+        )
+        client = MagicMock()
+        with patch(
+            "phil_mind_rag.agents.grounding.generate_structured",
+            return_value=stub_report.model_copy(
+                update={"unsupported_claims": [], "supported_claims": []}
+            ),
+        ):
+            result = run_grounding(state, client, "gpt-4o-mini")
+        assert any(
+            claim.text == "Bad citation claim" and "unknown chunk IDs" in claim.note
+            for claim in result["report"].unsupported_claims
+        )
+
 
 # --- End-to-end graph test ---------------------------------------------
 
@@ -269,6 +336,7 @@ class TestRunAnalysis:
     ) -> None:
         mock_pipeline = MagicMock()
         mock_pipeline.retrieve.return_value = sample_chunks
+        mock_pipeline.answer_from_contexts.return_value = "Baseline grounded answer."
 
         mock_settings = MagicMock()
         mock_settings.openai_api_key.get_secret_value.return_value = "sk-test"
@@ -305,6 +373,7 @@ class TestRunAnalysis:
         assert isinstance(result.materialist_memo, StanceMemo)
         assert isinstance(result.idealist_memo, StanceMemo)
         assert isinstance(result.dualist_memo, StanceMemo)
+        assert result.baseline_answer == "Baseline grounded answer."
         assert len(result.chunks) == 2
 
     def test_retrieval_called_with_question(
@@ -315,6 +384,7 @@ class TestRunAnalysis:
     ) -> None:
         mock_pipeline = MagicMock()
         mock_pipeline.retrieve.return_value = sample_chunks
+        mock_pipeline.answer_from_contexts.return_value = "Baseline."
 
         mock_settings = MagicMock()
         mock_settings.openai_api_key.get_secret_value.return_value = "sk-test"
@@ -336,6 +406,9 @@ class TestRunAnalysis:
             run_analysis("Hard problem of consciousness", mock_pipeline, mock_settings)
 
         mock_pipeline.retrieve.assert_called_once_with("Hard problem of consciousness")
+        mock_pipeline.answer_from_contexts.assert_called_once_with(
+            "Hard problem of consciousness", sample_chunks
+        )
 
 
 # --- Import / startup regression tests -----------------------------------

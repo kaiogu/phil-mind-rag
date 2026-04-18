@@ -12,7 +12,8 @@ _STANCE_SYSTEM = (
     "You are a philosopher of mind representing the {stance} position. "
     "{instruction} "
     "Ground every claim in the retrieved evidence below. "
-    "Use the chunk IDs (chunk_0, chunk_1, …) to cite supporting passages. "
+    "For every supporting claim and rival critique, include one or more chunk IDs "
+    "(chunk_0, chunk_1, …) that directly support it. "
     "Respond strictly in the JSON schema provided — no prose outside it."
 )
 
@@ -20,9 +21,11 @@ _GROUNDING_SYSTEM = (
     "You are an impartial philosophical adjudicator. "
     "You make no metaphysical commitments of your own. "
     "Compare each stance memo against the retrieved evidence. "
+    "Audit each claim individually against its cited chunk IDs. "
     "Flag claims that are not traceable to a cited chunk ID, "
     "equivocations, and source gaps. "
     "Identify genuine points of disagreement — not generic summaries. "
+    "Populate both supported_claims and unsupported_claims. "
     "Respond strictly in the JSON schema provided — no prose outside it."
 )
 
@@ -57,9 +60,8 @@ def grounding_prompt(
     memos_block = "\n\n---\n\n".join(
         f"[{m.stance.upper()}]\n"
         f"Thesis: {m.thesis}\n"
-        f"Supporting arguments: {m.supporting_arguments}\n"
-        f"Attacks on rivals: {m.attack_on_rivals}\n"
-        f"Citations: {m.citations}\n"
+        f"Supporting claims:\n{_format_claims(m.supporting_claims)}\n"
+        f"Critiques of rivals:\n{_format_claims(m.rival_critiques)}\n"
         f"Uncertainty: {m.uncertainty_notes}"
         for m in memos
     )
@@ -69,3 +71,12 @@ def grounding_prompt(
         f"Stance memos:\n\n{memos_block}"
     )
     return _GROUNDING_SYSTEM, user
+
+
+def _format_claims(claims: list) -> str:
+    if not claims:
+        return "- none"
+    return "\n".join(
+        f"- {claim.text} (citations: {', '.join(claim.citations) or 'none'})"
+        for claim in claims
+    )

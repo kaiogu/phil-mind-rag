@@ -103,6 +103,23 @@ class TestQueryWithSources:
         pipeline._prompt.build.assert_called_once_with("Q?", contexts)
 
 
+class TestAnswerFromContexts:
+    def test_returns_fallback_with_no_context(self, pipeline) -> None:
+        answer = pipeline.answer_from_contexts("Q?", [])
+        assert "No relevant context" in answer
+        pipeline._llm.generate.assert_not_called()
+
+    def test_builds_prompt_from_given_contexts(self, pipeline) -> None:
+        contexts = [RetrievalResult(text="ctx", score=0.9, metadata={})]
+        pipeline._prompt.build.return_value = "prompt"
+        pipeline._llm.generate.return_value = "answer"
+
+        result = pipeline.answer_from_contexts("  What is qualia?  ", contexts)
+
+        assert result == "answer"
+        pipeline._prompt.build.assert_called_once_with("What is qualia?", contexts)
+
+
 class TestQuery:
     def test_delegates_to_query_with_sources(self, pipeline) -> None:
         pipeline._retriever.retrieve.return_value = [
