@@ -227,7 +227,7 @@ python main.py         # http://localhost:7860
 python scripts/run_eval.py
 
 # Live paid-provider smoke test for source discovery
-make test-paid-api
+uv run pytest --verbose -m paid_api tests/test_paid_api_smoke.py
 
 # Lint / type-check / test
 uv run ruff check .
