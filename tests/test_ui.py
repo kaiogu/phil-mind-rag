@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from phil_mind_rag.agents.graph import AnalysisResult
 from phil_mind_rag.agents.schema import (
     Claim,
     EvidenceClaim,
+    SourceDiscoveryReport,
+    SourceRecommendation,
     StanceMemo,
     SynthesisReport,
 )
 from phil_mind_rag.app.ui import (
     create_app,
+    handle_acquire_sources,
     handle_analysis,
+    handle_discover_sources,
     handle_extract_metadata,
     handle_refresh,
     handle_upload,
@@ -22,6 +27,44 @@ from phil_mind_rag.ingestion.chunker import Chunk
 from phil_mind_rag.ingestion.metadata_extractor import ExtractedMetadata
 from phil_mind_rag.ingestion.registry import DocumentRecord
 from phil_mind_rag.retrieval.store import RetrievalResult
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def _source_report() -> SourceDiscoveryReport:
+    return SourceDiscoveryReport(
+        field="philosophy of mind",
+        question="What are the most important sources on consciousness?",
+        search_query="consciousness seminal papers books blogs",
+        recommendations=[
+            SourceRecommendation(
+                title="Facing Up to the Problem of Consciousness",
+                source_type="paper",
+                rationale="Canonical framing of the hard problem.",
+                priority=1,
+                relevance_to_question="Directly addresses the question.",
+                suggested_use="Anchor text for the central distinction.",
+                source_url="https://example.com/facing-up",
+                download_url="https://example.com/facing-up.pdf",
+                access_status="open",
+                acquisition_note=None,
+            ),
+            SourceRecommendation(
+                title="The Conscious Mind",
+                source_type="book",
+                rationale="Extended treatment of the argument.",
+                priority=2,
+                relevance_to_question="Deepens the framing and objections.",
+                suggested_use="Use for book-length argument structure.",
+                source_url="https://example.com/the-conscious-mind",
+                download_url=None,
+                access_status="copyrighted",
+                acquisition_note="No lawful downloadable copy was available.",
+            ),
+        ],
+        gaps_or_followups=["Add a strong physicalist reply."],
+    )
 
 
 def _memo(stance: str) -> StanceMemo:
@@ -291,6 +334,111 @@ def test_handle_upload_returns_validation_error(tmp_path) -> None:
     ]
 
 
+def test_handle_discover_sources_requires_field_and_question() -> None:
+    result = handle_discover_sources("", " ", "")
+    assert result == ("Please enter both a field and a discovery question.", [])
+
+
+def test_handle_discover_sources_formats_report_and_caches_state() -> None:
+    class _OpenAIWebSearchProvider:
+        pass
+
+    settings = MagicMock()
+    settings.openai_api_key.get_secret_value.return_value = "sk-test"
+    settings.openai_chat_model = "gpt-5-mini"
+    settings.openai_web_search_model = "gpt-5-mini"
+
+    with (
+        patch("phil_mind_rag.app.ui._get_settings", return_value=settings),
+        patch(
+            "phil_mind_rag.app.ui.default_source_providers",
+            return_value=[_OpenAIWebSearchProvider()],
+        ),
+        patch("phil_mind_rag.app.ui.OpenAI"),
+        patch(
+            "phil_mind_rag.app.ui.discover_sources",
+            return_value=_source_report(),
+        ),
+    ):
+        markdown, state = handle_discover_sources(
+            "philosophy of mind",
+            "What are the most important sources on consciousness?",
+            "",
+        )
+
+    assert "Facing Up to the Problem of Consciousness" in markdown
+    assert "No lawful downloadable copy was available." in markdown
+    assert len(state) == 2
+    assert state[1]["title"] == "The Conscious Mind"
+
+
+def test_handle_discover_sources_shows_web_search_note_when_unconfigured() -> None:
+    settings = MagicMock()
+    settings.openai_api_key.get_secret_value.return_value = "sk-test"
+    settings.openai_chat_model = "gpt-5-mini"
+    settings.openai_web_search_model = "gpt-5-mini"
+
+    with (
+        patch("phil_mind_rag.app.ui._get_settings", return_value=settings),
+        patch("phil_mind_rag.app.ui.default_source_providers", return_value=[object()]),
+        patch("phil_mind_rag.app.ui.OpenAI"),
+        patch(
+            "phil_mind_rag.app.ui.discover_sources",
+            return_value=_source_report(),
+        ),
+    ):
+        markdown, _ = handle_discover_sources(
+            "philosophy of mind",
+            "What are the most important sources on consciousness?",
+            "",
+        )
+
+    assert "OpenAI web-search provider" in markdown
+
+
+def test_handle_acquire_sources_requires_discovery_results() -> None:
+    assert handle_acquire_sources([]) == "No discovered sources are available yet."
+
+
+def test_handle_acquire_sources_formats_results(tmp_path: Path) -> None:
+    settings = MagicMock()
+    settings.source_download_dir = tmp_path / "discovered"
+    pipeline = MagicMock()
+    recommendations = [item.model_dump() for item in _source_report().recommendations]
+
+    download_results = [
+        MagicMock(
+            success=True,
+            title="Facing Up to the Problem of Consciousness",
+            ingested_chunks=12,
+            skipped=False,
+            skip_reason=None,
+            error=None,
+        ),
+        MagicMock(
+            success=False,
+            title="The Conscious Mind",
+            ingested_chunks=None,
+            skipped=True,
+            skip_reason="No lawful downloadable copy was available.",
+            error=None,
+        ),
+    ]
+
+    with (
+        patch("phil_mind_rag.app.ui._get_settings", return_value=settings),
+        patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline),
+        patch(
+            "phil_mind_rag.app.ui.download_sources",
+            return_value=download_results,
+        ),
+    ):
+        markdown = handle_acquire_sources(recommendations)
+
+    assert "Downloaded **Facing Up to the Problem of Consciousness**" in markdown
+    assert "Skipped **The Conscious Mind**" in markdown
+
+
 def test_create_app_builds_expected_tabs() -> None:
     app = create_app()
 
@@ -306,6 +454,12 @@ def test_create_app_builds_expected_tabs() -> None:
     assert "Baseline answer" in labels
     assert "Grounding" in labels
     assert "Synthesis" in labels
+    assert "Discovery Results" in labels
+    assert "Acquisition Status" in labels
+    assert "Upload Status" in labels
     assert any(
         isinstance(value, str) and "Single-Agent Baseline" in value for value in values
+    )
+    assert any(
+        isinstance(value, str) and "Manual PDF Upload" in value for value in values
     )

@@ -57,6 +57,9 @@ package = false
 testpaths = ["tests"]
 addopts = "-v --tb=short"
 pythonpath = ["."]
+markers = [
+    "paid_api: tests that call paid external APIs and are disabled by default",
+]
 
 [tool.ty.environment]
 python-version = "3.12"

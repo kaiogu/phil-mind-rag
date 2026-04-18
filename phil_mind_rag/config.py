@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr
     openai_embedding_model: str = "text-embedding-3-small"
     openai_chat_model: str = "gpt-5-mini"
+    openai_web_search_model: str = "gpt-5-mini"
+    openalex_email: str | None = None
 
     # --- ChromaDB -------------------------------------------------------
     chroma_persist_dir: Path = _PROJECT_ROOT / "data" / "chroma"
@@ -34,6 +36,7 @@ class Settings(BaseSettings):
     allowed_extensions: set[str] = {".pdf"}
     chunk_size: int = 512
     chunk_overlap: int = 64
+    source_download_dir: Path = _PROJECT_ROOT / "data" / "raw" / "discovered"
 
     # --- App ------------------------------------------------------------
     gradio_server_port: int = 7860
