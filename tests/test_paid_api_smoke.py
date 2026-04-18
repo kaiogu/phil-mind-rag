@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 from openai import OpenAI
 
@@ -14,18 +12,7 @@ from phil_mind_rag.agents.source_search import (
 )
 from phil_mind_rag.config import get_settings
 
-
-def _paid_api_enabled() -> bool:
-    return os.getenv("RUN_PAID_API_TESTS") == "1"
-
-
-pytestmark = [
-    pytest.mark.paid_api,
-    pytest.mark.skipif(
-        not _paid_api_enabled(),
-        reason="Set RUN_PAID_API_TESTS=1 to run paid external API smoke tests.",
-    ),
-]
+pytestmark = pytest.mark.paid_api
 
 
 def test_openai_web_search_provider_live() -> None:
