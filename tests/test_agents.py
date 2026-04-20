@@ -11,6 +11,7 @@ import pytest
 
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
 from phil_mind_rag.agents.grounding import run_grounding
+from phil_mind_rag.agents.plain import orchestration_profiles, run_plain_analysis
 from phil_mind_rag.agents.prompts import grounding_prompt, stance_prompt
 from phil_mind_rag.agents.schema import (
     Claim,
@@ -348,9 +349,9 @@ class TestRunAnalysis:
 
         def fake_generate_structured(client, model, system, user, schema_cls):
             if schema_cls is StanceMemo:
-                if "materialist" in system:
+                if "representing the materialist position" in system:
                     return mat
-                if "idealist" in system:
+                if "representing the idealist position" in system:
                     return ide
                 return dua
             return stub_report
@@ -409,6 +410,63 @@ class TestRunAnalysis:
         mock_pipeline.answer_from_contexts.assert_called_once_with(
             "Hard problem of consciousness", sample_chunks
         )
+
+
+class TestPlainOrchestration:
+    def test_orchestration_profiles_include_comparison_baseline(self) -> None:
+        profiles = orchestration_profiles()
+
+        assert {profile.name for profile in profiles} == {
+            "langgraph-v1",
+            "plain-python-v1",
+        }
+        assert all(profile.tradeoffs for profile in profiles)
+
+    def test_run_plain_analysis_returns_analysis_result(
+        self,
+        sample_chunks: list[RetrievalResult],
+        stub_memo: StanceMemo,
+        stub_report: SynthesisReport,
+    ) -> None:
+        mock_pipeline = MagicMock()
+        mock_pipeline.retrieve.return_value = sample_chunks
+        mock_pipeline.answer_from_contexts.return_value = "Baseline grounded answer."
+
+        mock_settings = MagicMock()
+        mock_settings.openai_api_key.get_secret_value.return_value = "sk-test"
+        mock_settings.openai_chat_model = "gpt-4o-mini"
+
+        mat = stub_memo.model_copy(update={"stance": "materialist"})
+        ide = stub_memo.model_copy(update={"stance": "idealist"})
+        dua = stub_memo.model_copy(update={"stance": "dualist"})
+
+        def fake_generate_structured(client, model, system, user, schema_cls):
+            if schema_cls is StanceMemo:
+                if "representing the materialist position" in system:
+                    return mat
+                if "representing the idealist position" in system:
+                    return ide
+                return dua
+            return stub_report
+
+        stance_patch = patch(
+            "phil_mind_rag.agents.stance.generate_structured",
+            side_effect=fake_generate_structured,
+        )
+        ground_patch = patch(
+            "phil_mind_rag.agents.grounding.generate_structured",
+            return_value=stub_report,
+        )
+        with patch("phil_mind_rag.agents.plain.OpenAI"), stance_patch, ground_patch:
+            result = run_plain_analysis(
+                "What is consciousness?", mock_pipeline, mock_settings
+            )
+
+        assert isinstance(result, AnalysisResult)
+        assert result.materialist_memo.stance == "materialist"
+        assert result.idealist_memo.stance == "idealist"
+        assert result.dualist_memo.stance == "dualist"
+        assert result.report == stub_report
 
 
 # --- Import / startup regression tests -----------------------------------
