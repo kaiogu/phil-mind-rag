@@ -204,9 +204,9 @@ These are the files where the real decisions live. Read them in this order:
 
 ### v3 — corpus pipeline
 - [x] Source discovery helpers with OpenAlex, Semantic Scholar, and OpenAI web search — KGU-104
-- [x] Source download and optional auto-ingestion helpers — partial KGU-105
-- [ ] DOI / Unpaywall / arXiv / Semantic Scholar fallback acquisition order
-- [ ] Registry-level ingestion status and dedup tracking
+- [x] Source download and optional auto-ingestion helpers — KGU-105
+- [x] DOI / Unpaywall / arXiv / Semantic Scholar fallback acquisition order
+- [x] Acquisition status and duplicate-download tracking
 - [ ] Eval-generation agent (LLM-authored, corpus-pinned) — KGU-106
 
 ### v4 — framework comparison and deeper evals

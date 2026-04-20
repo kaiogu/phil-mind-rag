@@ -169,6 +169,7 @@ def _build_download_jobs(
             title=recommendation.title,
             source_url=recommendation.source_url,
             download_url=recommendation.download_url,
+            doi=recommendation.doi,
             access_status=recommendation.access_status,
             access_note=recommendation.acquisition_note,
         )
@@ -179,6 +180,9 @@ def _build_download_jobs(
 def _format_acquisition_results(results: list) -> str:
     lines = ["**Acquisition Results:**"]
     for result in results:
+        if result.status == "already-indexed":
+            lines.append(f"- Already indexed **{result.title}**: {result.skip_reason}")
+            continue
         if result.success:
             extra = (
                 f" — ingested {result.ingested_chunks} chunks"

@@ -7,8 +7,8 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Literal, Protocol
+from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from phil_mind_rag.agents._llm import generate_structured
@@ -27,6 +27,15 @@ if TYPE_CHECKING:
 
     from phil_mind_rag.agents.source_search import SourceSearchProvider
     from phil_mind_rag.pipeline import RAGPipeline
+
+DownloadStatus = Literal["downloaded", "failed", "already-indexed", "skipped"]
+
+
+class DownloadResolver(Protocol):
+    """Resolve a source acquisition job to a downloadable artifact URL."""
+
+    def resolve(self, job: DownloadJob) -> str | None:
+        """Return a direct PDF URL if this resolver can find one."""
 
 
 _DISCOVERY_SYSTEM = (
@@ -196,6 +205,9 @@ class DownloadJob:
     title: str
     source_url: str | None = None
     download_url: str | None = None
+    doi: str | None = None
+    arxiv_id: str | None = None
+    semantic_scholar_id: str | None = None
     access_status: str = "unknown"
     access_note: str | None = None
 
@@ -209,6 +221,7 @@ class DownloadResult:
     download_url: str | None
     path: Path | None
     success: bool
+    status: DownloadStatus
     error: str | None = None
     ingested_chunks: int | None = None
     skipped: bool = False
@@ -222,6 +235,7 @@ def download_sources(
     max_workers: int = 4,
     pipeline: RAGPipeline | None = None,
     fetcher: Callable[[str], bytes] | None = None,
+    resolvers: list[DownloadResolver] | None = None,
 ) -> list[DownloadResult]:
     """Fetch multiple sources in parallel and optionally ingest downloaded PDFs."""
     if not jobs:
@@ -231,11 +245,19 @@ def download_sources(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     fetch = fetcher or _download_pdf
+    resolver_chain = resolvers or default_download_resolvers()
 
     results: list[DownloadResult | None] = [None] * len(jobs)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(_download_one, job, output_dir, pipeline, fetch): i
+            executor.submit(
+                _download_one,
+                job,
+                output_dir,
+                pipeline,
+                fetch,
+                resolver_chain,
+            ): i
             for i, job in enumerate(jobs)
         }
         for future in as_completed(futures):
@@ -251,6 +273,7 @@ def download_papers(
     max_workers: int = 4,
     pipeline: RAGPipeline | None = None,
     fetcher: Callable[[str], bytes] | None = None,
+    resolvers: list[DownloadResolver] | None = None,
 ) -> list[DownloadResult]:
     """Backward-compatible alias for paper-only download flows."""
     return download_sources(
@@ -259,6 +282,7 @@ def download_papers(
         max_workers=max_workers,
         pipeline=pipeline,
         fetcher=fetcher,
+        resolvers=resolvers,
     )
 
 
@@ -267,29 +291,45 @@ def _download_one(
     output_dir: Path,
     pipeline: RAGPipeline | None,
     fetcher: Callable[[str], bytes],
+    resolvers: list[DownloadResolver],
 ) -> DownloadResult:
     try:
-        if job.download_url is None:
+        download_url = resolve_download_url(job, resolvers)
+        if download_url is None:
             return DownloadResult(
                 title=job.title,
                 source_url=job.source_url,
-                download_url=job.download_url,
+                download_url=None,
                 path=None,
                 success=False,
+                status="skipped",
                 skipped=True,
                 skip_reason=_skip_reason(job),
             )
 
-        content = fetcher(job.download_url)
-        destination = output_dir / _safe_pdf_name(job.title, job.download_url)
+        destination = output_dir / _safe_pdf_name(job.title, download_url)
+        if destination.exists():
+            return DownloadResult(
+                title=job.title,
+                source_url=job.source_url,
+                download_url=download_url,
+                path=destination,
+                success=True,
+                status="already-indexed",
+                skipped=True,
+                skip_reason="PDF already exists in the acquisition directory.",
+            )
+
+        content = fetcher(download_url)
         destination.write_bytes(content)
         chunk_count = pipeline.ingest(destination) if pipeline is not None else None
         return DownloadResult(
             title=job.title,
             source_url=job.source_url,
-            download_url=job.download_url,
+            download_url=download_url,
             path=destination,
             success=True,
+            status="downloaded",
             ingested_chunks=chunk_count,
         )
     except Exception as exc:  # noqa: BLE001
@@ -299,8 +339,122 @@ def _download_one(
             download_url=job.download_url,
             path=None,
             success=False,
+            status="failed",
             error=str(exc),
         )
+
+
+def resolve_download_url(
+    job: DownloadJob,
+    resolvers: list[DownloadResolver] | None = None,
+) -> str | None:
+    """Resolve a job to a PDF URL using the configured fallback order."""
+    for resolver in resolvers or default_download_resolvers():
+        try:
+            resolved = resolver.resolve(job)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Download resolver %s failed for %s: %s",
+                resolver.__class__.__name__,
+                job.title,
+                exc,
+            )
+            continue
+        if resolved:
+            return resolved
+    return None
+
+
+def default_download_resolvers(
+    *,
+    unpaywall_email: str | None = None,
+    semantic_scholar_api_key: str | None = None,
+) -> list[DownloadResolver]:
+    """Return the KGU-105 PDF resolution order."""
+    return [
+        DirectDownloadResolver(),
+        UnpaywallResolver(email=unpaywall_email),
+        ArxivResolver(),
+        SemanticScholarPdfResolver(api_key=semantic_scholar_api_key),
+    ]
+
+
+class DirectDownloadResolver:
+    """Use an already-known direct PDF URL."""
+
+    def resolve(self, job: DownloadJob) -> str | None:
+        if job.download_url and _is_http_url(job.download_url):
+            return job.download_url
+        return None
+
+
+class UnpaywallResolver:
+    """Resolve a DOI through Unpaywall's open-access location metadata."""
+
+    def __init__(
+        self,
+        *,
+        email: str | None = None,
+        fetcher: Callable[[str], dict] | None = None,
+    ) -> None:
+        self._email = email or "phil-mind-rag@example.invalid"
+        self._fetcher = fetcher or _fetch_json
+
+    def resolve(self, job: DownloadJob) -> str | None:
+        if not job.doi:
+            return None
+        url = (
+            f"https://api.unpaywall.org/v2/{quote(job.doi, safe='')}"
+            f"?{urlencode({'email': self._email})}"
+        )
+        payload = self._fetcher(url)
+        location = payload.get("best_oa_location") or {}
+        pdf_url = location.get("url_for_pdf")
+        if pdf_url and _is_http_url(pdf_url):
+            return pdf_url
+        return None
+
+
+class ArxivResolver:
+    """Resolve arXiv IDs or arXiv landing URLs to PDF URLs."""
+
+    def resolve(self, job: DownloadJob) -> str | None:
+        arxiv_id = job.arxiv_id or _arxiv_id_from_url(job.source_url)
+        if not arxiv_id:
+            return None
+        return f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+
+
+class SemanticScholarPdfResolver:
+    """Resolve open-access PDF metadata from Semantic Scholar."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        fetcher: Callable[[str], dict] | None = None,
+    ) -> None:
+        self._api_key = api_key
+        self._fetcher = fetcher or self._fetch
+
+    def resolve(self, job: DownloadJob) -> str | None:
+        paper_id = _semantic_scholar_lookup_id(job)
+        if not paper_id:
+            return None
+        payload = self._fetcher(
+            "https://api.semanticscholar.org/graph/v1/paper/"
+            f"{quote(paper_id, safe=':')}?fields=openAccessPdf"
+        )
+        pdf_url = (payload.get("openAccessPdf") or {}).get("url")
+        if pdf_url and _is_http_url(pdf_url):
+            return pdf_url
+        return None
+
+    def _fetch(self, url: str) -> dict:
+        headers = {"User-Agent": "phil-mind-rag/0.1"}
+        if self._api_key:
+            headers["x-api-key"] = self._api_key
+        return _fetch_json(url, headers=headers)
 
 
 def _download_pdf(url: str) -> bytes:
@@ -315,6 +469,17 @@ def _download_pdf(url: str) -> bytes:
     )
     with urlopen(request, timeout=30) as response:  # noqa: S310
         return response.read()
+
+
+def _fetch_json(url: str, headers: dict[str, str] | None = None) -> dict:
+    request = Request(  # noqa: S310
+        url,
+        headers=headers or {"User-Agent": "phil-mind-rag/0.1"},
+    )
+    with urlopen(request, timeout=30) as response:  # noqa: S310
+        import json
+
+        return json.loads(response.read().decode("utf-8"))
 
 
 def _format_candidates(candidates: list[SourceCandidate]) -> str:
@@ -356,6 +521,32 @@ def _safe_pdf_name(title: str, url: str) -> str:
     if not stem.lower().endswith(".pdf"):
         stem = f"{stem}.pdf"
     return stem
+
+
+def _is_http_url(url: str) -> bool:
+    return urlparse(url).scheme in {"http", "https"}
+
+
+def _arxiv_id_from_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if parsed.netloc not in {"arxiv.org", "www.arxiv.org"}:
+        return None
+    path = parsed.path.strip("/")
+    if path.startswith("abs/"):
+        return path.removeprefix("abs/")
+    if path.startswith("pdf/"):
+        return path.removeprefix("pdf/").removesuffix(".pdf")
+    return None
+
+
+def _semantic_scholar_lookup_id(job: DownloadJob) -> str | None:
+    if job.semantic_scholar_id:
+        return job.semantic_scholar_id
+    if job.doi:
+        return f"DOI:{job.doi}"
+    return None
 
 
 def _candidate_key(candidate: SourceCandidate) -> str:
