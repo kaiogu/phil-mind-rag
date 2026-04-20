@@ -52,6 +52,53 @@ class OpenAlexSourceProvider:
         ]
 
 
+class SemanticScholarSourceProvider:
+    """Semantic Scholar paper search for scholarly article metadata."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        fetcher: Callable[[str], dict] | None = None,
+    ) -> None:
+        self._api_key = api_key
+        self._fetcher = fetcher or self._fetch
+
+    def search(self, query: str, limit: int = 5) -> list[SourceCandidate]:
+        params = {
+            "query": query,
+            "limit": str(limit),
+            "fields": ",".join(
+                [
+                    "title",
+                    "authors",
+                    "year",
+                    "venue",
+                    "abstract",
+                    "citationCount",
+                    "url",
+                    "externalIds",
+                    "openAccessPdf",
+                    "isOpenAccess",
+                ]
+            ),
+        }
+        payload = self._fetcher(
+            "https://api.semanticscholar.org/graph/v1/paper/search?" + urlencode(params)
+        )
+        return [
+            _semantic_scholar_to_candidate(item)
+            for item in payload.get("data", [])
+            if item.get("title")
+        ]
+
+    def _fetch(self, url: str) -> dict:
+        headers = {"User-Agent": "phil-mind-rag/0.1"}
+        if self._api_key:
+            headers["x-api-key"] = self._api_key
+        return _fetch_json(url, headers=headers)
+
+
 class OpenAIWebSearchProvider:
     """General web search provider backed by the OpenAI web search tool."""
 
@@ -75,8 +122,9 @@ class OpenAIWebSearchProvider:
                 f"Return at most {limit} results as strict JSON with shape "
                 '[{"title": str, "source_type": str, "authors": list[str], '
                 '"year": int|null, "venue": str|null, "abstract": str, '
-                '"citation_count": int|null, "source_url": str|null, '
-                '"download_url": str|null, "access_status": str, '
+                '"citation_count": int|null, "doi": str|null, '
+                '"source_url": str|null, "download_url": str|null, '
+                '"access_status": str, '
                 '"access_note": str|null}]. '
                 "Include books, blogs, essays, articles, and papers when useful. "
                 "If a source appears paywalled or copyrighted, set access_status "
@@ -96,6 +144,7 @@ def default_source_providers(settings: Settings) -> list[SourceSearchProvider]:
     client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
     providers: list[SourceSearchProvider] = [
         OpenAlexSourceProvider(email=settings.openalex_email),
+        SemanticScholarSourceProvider(),
         OpenAIWebSearchProvider(
             client=client,
             model=settings.openai_web_search_model,
@@ -126,6 +175,7 @@ def _openalex_to_candidate(item: dict) -> SourceCandidate:
         ],
         year=item.get("publication_year"),
         venue=host_venue,
+        doi=_normalize_doi(item.get("doi")),
         abstract=_openalex_abstract(item),
         citation_count=item.get("cited_by_count"),
         source_url=landing_url,
@@ -133,6 +183,39 @@ def _openalex_to_candidate(item: dict) -> SourceCandidate:
         access_status="open" if pdf_url else "unknown",
         access_note=None,
     )
+
+
+def _semantic_scholar_to_candidate(item: dict) -> SourceCandidate:
+    open_access_pdf = item.get("openAccessPdf") or {}
+    pdf_url = open_access_pdf.get("url")
+    external_ids = item.get("externalIds") or {}
+    return SourceCandidate(
+        title=item["title"],
+        source_type="paper",
+        authors=[
+            author.get("name", "")
+            for author in item.get("authors", [])
+            if author.get("name")
+        ],
+        year=item.get("year"),
+        venue=item.get("venue") or None,
+        doi=_normalize_doi(external_ids.get("DOI")),
+        abstract=item.get("abstract") or "",
+        citation_count=item.get("citationCount"),
+        source_url=item.get("url"),
+        download_url=pdf_url,
+        access_status="open" if pdf_url or item.get("isOpenAccess") else "unknown",
+        access_note=None if pdf_url else "No open-access PDF URL returned.",
+    )
+
+
+def _normalize_doi(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    doi = raw.strip()
+    if doi.startswith("https://doi.org/"):
+        return doi.removeprefix("https://doi.org/")
+    return doi
 
 
 def _openalex_abstract(item: dict) -> str:
@@ -147,10 +230,10 @@ def _openalex_abstract(item: dict) -> str:
     return " ".join(token for _, token in sorted(words))
 
 
-def _fetch_json(url: str) -> dict:
+def _fetch_json(url: str, headers: dict[str, str] | None = None) -> dict:
     request = Request(  # noqa: S310
         url,
-        headers={"User-Agent": "phil-mind-rag/0.1"},
+        headers=headers or {"User-Agent": "phil-mind-rag/0.1"},
     )
     with urlopen(request, timeout=30) as response:  # noqa: S310
         return json.loads(response.read().decode("utf-8"))

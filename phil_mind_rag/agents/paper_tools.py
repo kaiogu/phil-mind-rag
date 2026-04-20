@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -39,6 +40,8 @@ _DISCOVERY_SYSTEM = (
     "Avoid recommending redundant sources unless they represent an essential dispute. "
     "Return strict JSON matching the provided schema."
 )
+
+logger = logging.getLogger(__name__)
 
 
 def suggest_sources(
@@ -94,8 +97,17 @@ def discover_sources(
     query = search_query.strip() if search_query and search_query.strip() else question
     merged: list[SourceCandidate] = []
     seen: set[str] = set()
+    provider_errors: list[str] = []
     for provider in providers:
-        for candidate in provider.search(query, limit=per_provider_limit):
+        try:
+            candidates = provider.search(query, limit=per_provider_limit)
+        except Exception as exc:  # noqa: BLE001
+            provider_name = provider.__class__.__name__
+            provider_errors.append(f"{provider_name}: {exc}")
+            logger.warning("Source provider %s failed: %s", provider_name, exc)
+            continue
+
+        for candidate in candidates:
             key = _candidate_key(candidate)
             if key in seen:
                 continue
@@ -103,6 +115,11 @@ def discover_sources(
             merged.append(candidate)
 
     if not merged:
+        if provider_errors:
+            raise ValueError(
+                "providers returned no candidates; provider errors: "
+                + "; ".join(provider_errors)
+            )
         raise ValueError("providers returned no candidates")
 
     return suggest_sources(
@@ -139,6 +156,7 @@ def suggest_papers(
                 citation_count=candidate.citation_count,
                 source_url=candidate.source_url,
                 download_url=candidate.pdf_url,
+                doi=candidate.doi,
                 access_status="open" if candidate.pdf_url else "unknown",
             )
             for candidate in candidates
@@ -159,6 +177,7 @@ def suggest_papers(
                 priority=item.priority,
                 relevance_to_question=item.relevance_to_question,
                 suggested_use=item.suggested_use,
+                doi=item.doi,
                 pdf_url=item.download_url,
                 source_url=item.source_url,
                 access_status=item.access_status,
@@ -316,6 +335,7 @@ def _format_candidates(candidates: list[SourceCandidate]) -> str:
                     "Year: "
                     f"{candidate.year if candidate.year is not None else 'unknown'}",
                     f"Venue: {candidate.venue or 'unknown'}",
+                    f"DOI: {candidate.doi or 'unknown'}",
                     f"Citations: {citation_count}",
                     f"Source URL: {candidate.source_url or 'none'}",
                     f"Download URL: {candidate.download_url or 'none'}",

@@ -140,6 +140,8 @@ def _format_discovery_report(
         lines.append(f"  Relevance: {recommendation.relevance_to_question}")
         lines.append(f"  Suggested use: {recommendation.suggested_use}")
         lines.append(f"  Access: {recommendation.access_status}")
+        if recommendation.doi:
+            lines.append(f"  DOI: {recommendation.doi}")
         if recommendation.acquisition_note:
             lines.append(f"  Acquisition note: {recommendation.acquisition_note}")
         if recommendation.source_url:
