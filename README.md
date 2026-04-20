@@ -80,7 +80,7 @@ User question
 
 LangGraph models this as a directed graph where nodes are agent calls and edges are control flow decisions. The parallel fan-out and fan-in pattern is a core LangGraph primitive.
 
-A plain Python orchestration baseline implements the same flow without LangGraph, so framework value can be compared against a minimal control-flow implementation before adding CrewAI or another framework.
+A plain Python orchestration baseline implements the same flow without LangGraph, so framework value can be compared against a minimal control-flow implementation. An optional CrewAI path is also available for role/task orchestration comparison when the `crewai` package is installed.
 
 ---
 
@@ -210,7 +210,7 @@ These are the files where the real decisions live. Read them in this order:
 - [x] Eval-generation agent (LLM-authored, corpus-pinned) — KGU-106
 
 ### v4 — framework comparison and deeper evals
-- [ ] CrewAI reimplementation for framework comparison — KGU-114
+- [x] CrewAI reimplementation for framework comparison — KGU-114
 - [ ] Stance-biased reranking
 - [ ] Cross-model evaluation (generate with one family, judge with another)
 - [ ] Full eval suite across all three question types

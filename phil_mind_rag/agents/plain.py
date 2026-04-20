@@ -74,10 +74,29 @@ PLAIN_PROFILE = OrchestrationProfile(
     ],
 )
 
+CREWAI_PROFILE = OrchestrationProfile(
+    name="crewai-v1",
+    framework="CrewAI",
+    control_flow=(
+        "Sequential CrewAI tasks: materialist memo, idealist memo, dualist memo, "
+        "grounded synthesis."
+    ),
+    parallelism="CrewAI task orchestration; v1 keeps comparable sequential outputs.",
+    state_model="JSON task output validated back into StanceMemo/SynthesisReport.",
+    inspectability_notes=(
+        "Useful for comparing role/task ergonomics and portfolio legibility "
+        "against explicit graph/state-machine orchestration."
+    ),
+    tradeoffs=[
+        "Optional dependency; not required for the primary app path.",
+        "Less explicit typed state than LangGraph or the plain Python baseline.",
+    ],
+)
+
 
 def orchestration_profiles() -> list[OrchestrationProfile]:
     """Return the currently implemented orchestration comparison targets."""
-    return [LANGGRAPH_PROFILE, PLAIN_PROFILE]
+    return [LANGGRAPH_PROFILE, PLAIN_PROFILE, CREWAI_PROFILE]
 
 
 def run_plain_analysis(

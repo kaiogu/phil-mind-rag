@@ -134,8 +134,9 @@ These live in `phil_mind_rag/agents/schema.py`.
 
 **Implemented comparison baseline: plain Python orchestration** — same retrieve → parallel stances → grounding flow without a graph framework. This gives a concrete baseline for comparing boilerplate, debug ergonomics, and graph-framework value before adding another full agent framework.
 
-**Later: CrewAI** comparison implementation, now tracked separately as
-KGU-114. Comparison dimensions:
+**CrewAI comparison path:** optional task/role orchestration implementation,
+tracked by KGU-114, lives in `phil_mind_rag/agents/crewai.py` and is lazy-loaded
+so the primary app does not require CrewAI. Comparison dimensions:
 1. Explicitness of state and control flow
 2. Inspectability of multi-agent coordination
 3. Tool use, memory, retry handling
@@ -215,7 +216,7 @@ The process is the product for a portfolio artifact. Showing memo-writing and ad
 | 3 stance agents + 1 grounding agent | Additional stances (panpsychist, illusionist, etc.) |
 | Parallel memo generation | Open-ended debate / turn-based dialogue |
 | Structured `StanceMemo` + `SynthesisReport` output | Stance-biased reranking |
-| LangGraph orchestration | CrewAI comparison |
+| LangGraph orchestration + optional CrewAI comparison path | Production CrewAI migration |
 | Shared retrieval, same chunks per query | Separate source packs per stance |
 | Redesigned Gradio UI | Native app / PWA |
 | Grounding-fidelity eval | Full eval suite |
