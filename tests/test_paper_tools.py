@@ -8,9 +8,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from phil_mind_rag.agents.paper_tools import (
+    ArxivResolver,
+    DirectDownloadResolver,
     DownloadJob,
+    DownloadResolver,
+    SemanticScholarPdfResolver,
+    UnpaywallResolver,
     discover_sources,
     download_sources,
+    resolve_download_url,
     suggest_papers,
     suggest_sources,
 )
@@ -425,6 +431,7 @@ def test_download_sources_downloads_open_sources_in_order(tmp_path: Path) -> Non
 
     assert [result.title for result in results] == ["Paper One", "Paper Two"]
     assert all(result.success for result in results)
+    assert [result.status for result in results] == ["downloaded", "downloaded"]
     assert results[0].path == tmp_path / "Paper_One.pdf"
     assert results[0].path is not None and results[0].path.read_bytes().startswith(
         b"%PDF"
@@ -449,6 +456,7 @@ def test_download_sources_optionally_ingests(tmp_path: Path) -> None:
     )
 
     assert results[0].success is True
+    assert results[0].status == "downloaded"
     assert results[0].ingested_chunks == 12
     pipeline.ingest.assert_called_once()
 
@@ -476,6 +484,7 @@ def test_download_sources_marks_paywalled_or_copyrighted_sources(
     )
 
     assert results[0].skipped is True
+    assert results[0].status == "skipped"
     assert results[0].skip_reason == "No lawful downloadable copy was available."
     assert results[1].skipped is True
     assert "paywalled" in (results[1].skip_reason or "")
@@ -495,6 +504,7 @@ def test_download_sources_captures_fetch_errors(tmp_path: Path) -> None:
     )
 
     assert results[0].success is False
+    assert results[0].status == "failed"
     assert results[0].error == "network failed"
     assert results[0].path is None
 
@@ -515,3 +525,93 @@ def test_download_sources_validates_inputs(tmp_path: Path) -> None:
             tmp_path,
             max_workers=0,
         )
+
+
+def test_download_sources_skips_existing_pdf_without_refetching(tmp_path: Path) -> None:
+    destination = tmp_path / "Existing.pdf"
+    destination.write_bytes(b"%PDF already here")
+
+    results = download_sources(
+        [
+            DownloadJob(
+                title="Existing",
+                download_url="https://example.com/existing.pdf",
+            )
+        ],
+        tmp_path,
+        fetcher=lambda _: (_ for _ in ()).throw(RuntimeError("should not fetch")),
+    )
+
+    assert results[0].success is True
+    assert results[0].status == "already-indexed"
+    assert results[0].skipped is True
+    assert results[0].path == destination
+
+
+def test_resolve_download_url_uses_expected_fallback_order() -> None:
+    job = DownloadJob(
+        title="Facing Up",
+        doi="10.1234/facing-up",
+        source_url="https://arxiv.org/abs/2501.12345",
+    )
+    resolvers: list[DownloadResolver] = [
+        DirectDownloadResolver(),
+        UnpaywallResolver(
+            fetcher=lambda _: {"best_oa_location": {"url_for_pdf": None}}
+        ),
+        ArxivResolver(),
+        SemanticScholarPdfResolver(
+            fetcher=lambda _: {
+                "openAccessPdf": {"url": "https://example.com/semantic.pdf"}
+            }
+        ),
+    ]
+
+    assert (
+        resolve_download_url(job, resolvers) == "https://arxiv.org/pdf/2501.12345.pdf"
+    )
+
+
+def test_resolve_download_url_uses_unpaywall_before_arxiv() -> None:
+    job = DownloadJob(
+        title="Facing Up",
+        doi="10.1234/facing-up",
+        source_url="https://arxiv.org/abs/2501.12345",
+    )
+
+    result = resolve_download_url(
+        job,
+        [
+            DirectDownloadResolver(),
+            UnpaywallResolver(
+                fetcher=lambda _: {
+                    "best_oa_location": {
+                        "url_for_pdf": "https://example.com/unpaywall.pdf"
+                    }
+                }
+            ),
+            ArxivResolver(),
+        ],
+    )
+
+    assert result == "https://example.com/unpaywall.pdf"
+
+
+def test_resolve_download_url_uses_semantic_scholar_after_other_sources() -> None:
+    job = DownloadJob(title="Facing Up", doi="10.1234/facing-up")
+
+    result = resolve_download_url(
+        job,
+        [
+            DirectDownloadResolver(),
+            UnpaywallResolver(fetcher=lambda _: {"best_oa_location": None}),
+            ArxivResolver(),
+            SemanticScholarPdfResolver(
+                fetcher=lambda _: {
+                    "openAccessPdf": {"url": "https://example.com/semantic.pdf"}
+                }
+            ),
+        ],
+    )
+
+    assert result == "https://example.com/semantic.pdf"
