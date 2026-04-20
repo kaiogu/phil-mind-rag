@@ -8,16 +8,31 @@ disagreements, and an adjudicator that actually audits memo claims.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, Protocol
 
 if TYPE_CHECKING:
     from phil_mind_rag.agents.schema import (
+        Claim,
         EvidenceClaim,
         StanceMemo,
         SynthesisReport,
     )
+    from phil_mind_rag.retrieval.store import RetrievalResult
 
 DEFAULT_STANCES = ("materialist", "idealist", "dualist")
+SemanticSupportLabel = Literal["supported", "unsupported", "ambiguous"]
+
+
+class SemanticSupportJudge(Protocol):
+    """Callable contract for claim/chunk semantic support checks."""
+
+    def __call__(
+        self,
+        *,
+        claim_text: str,
+        cited_texts: list[str],
+    ) -> SemanticSupportLabel:
+        """Return whether cited texts semantically support the claim."""
 
 
 @dataclass(frozen=True)
@@ -29,18 +44,31 @@ class DimensionScore:
 
 
 @dataclass(frozen=True)
+class SemanticSupportFinding:
+    """One claim-level semantic support judgment."""
+
+    claim_text: str
+    stance: str
+    citations: list[str]
+    label: SemanticSupportLabel
+
+
+@dataclass(frozen=True)
 class MultiAgentEvalResult:
     """Deterministic scores for KGU-93 multi-agent output quality."""
 
     grounding_fidelity: DimensionScore
+    semantic_support: DimensionScore
     position_fidelity: DimensionScore
     disagreement_quality: DimensionScore
     adjudication_quality: DimensionScore
+    semantic_findings: list[SemanticSupportFinding]
 
     @property
     def overall(self) -> float:
         scores = [
             self.grounding_fidelity.score,
+            self.semantic_support.score,
             self.position_fidelity.score,
             self.disagreement_quality.score,
             self.adjudication_quality.score,
@@ -50,6 +78,7 @@ class MultiAgentEvalResult:
     def summary(self) -> str:
         return (
             f"Grounding fidelity:   {self.grounding_fidelity.score:.3f}\n"
+            f"Semantic support:    {self.semantic_support.score:.3f}\n"
             f"Position fidelity:    {self.position_fidelity.score:.3f}\n"
             f"Disagreement quality: {self.disagreement_quality.score:.3f}\n"
             f"Adjudication quality: {self.adjudication_quality.score:.3f}\n"
@@ -63,17 +92,26 @@ def evaluate_multi_agent_output(
     report: SynthesisReport,
     chunk_count: int,
     expected_stances: tuple[str, ...] = DEFAULT_STANCES,
+    chunks: list[RetrievalResult] | None = None,
+    semantic_judge: SemanticSupportJudge | None = None,
 ) -> MultiAgentEvalResult:
     """Score one multi-agent run against deterministic KGU-93 contracts."""
     if chunk_count < 0:
         raise ValueError("chunk_count must not be negative")
     valid_chunk_ids = {f"chunk_{i}" for i in range(chunk_count)}
+    semantic_support, semantic_findings = _score_semantic_support(
+        memos=memos,
+        report=report,
+        chunks=chunks,
+        semantic_judge=semantic_judge,
+    )
     return MultiAgentEvalResult(
         grounding_fidelity=_score_grounding_fidelity(
             memos=memos,
             report=report,
             valid_chunk_ids=valid_chunk_ids,
         ),
+        semantic_support=semantic_support,
         position_fidelity=_score_position_fidelity(
             memos=memos,
             expected_stances=expected_stances,
@@ -87,6 +125,7 @@ def evaluate_multi_agent_output(
             memos=memos,
             report=report,
         ),
+        semantic_findings=semantic_findings,
     )
 
 
@@ -131,6 +170,76 @@ def _score_grounding_fidelity(
         score=_mean([memo_claim_score, report_claim_score, chunk_reference_score]),
         notes=notes or ["All cited chunk IDs are structurally valid."],
     )
+
+
+def _score_semantic_support(
+    *,
+    memos: list[StanceMemo],
+    report: SynthesisReport,
+    chunks: list[RetrievalResult] | None,
+    semantic_judge: SemanticSupportJudge | None,
+) -> tuple[DimensionScore, list[SemanticSupportFinding]]:
+    if chunks is None or semantic_judge is None:
+        return (
+            DimensionScore(
+                score=1.0,
+                notes=[
+                    "Semantic support judge not configured; "
+                    "semantic entailment scoring was skipped."
+                ],
+            ),
+            [],
+        )
+
+    chunk_text_by_id = {f"chunk_{i}": chunk.text for i, chunk in enumerate(chunks)}
+    claim_items = [
+        *_semantic_claim_items_from_memos(memos),
+        *_semantic_claim_items_from_report(report),
+    ]
+    findings: list[SemanticSupportFinding] = []
+    skipped = 0
+
+    for stance, claim_text, citations in claim_items:
+        if not citations or any(
+            citation not in chunk_text_by_id for citation in citations
+        ):
+            skipped += 1
+            continue
+        label = semantic_judge(
+            claim_text=claim_text,
+            cited_texts=[chunk_text_by_id[citation] for citation in citations],
+        )
+        findings.append(
+            SemanticSupportFinding(
+                claim_text=claim_text,
+                stance=stance,
+                citations=citations,
+                label=label,
+            )
+        )
+
+    if not findings:
+        return (
+            DimensionScore(
+                score=1.0,
+                notes=["No semantically judgeable claims had valid citations."],
+            ),
+            [],
+        )
+
+    supported = sum(1 for finding in findings if finding.label == "supported")
+    ambiguous = sum(1 for finding in findings if finding.label == "ambiguous")
+    unsupported = sum(1 for finding in findings if finding.label == "unsupported")
+    score = (supported + (ambiguous * 0.5)) / len(findings)
+    notes = [
+        f"Semantic support judged {len(findings)} claims: "
+        f"{supported} supported, {ambiguous} ambiguous, {unsupported} unsupported."
+    ]
+    if skipped:
+        notes.append(
+            f"Skipped {skipped} claims with missing or structurally invalid citations."
+        )
+    return DimensionScore(score=score, notes=notes), findings
 
 
 def _score_position_fidelity(
@@ -257,6 +366,29 @@ def _memo_claims(memos: list[StanceMemo]) -> list[EvidenceClaim]:
 
 def _claims_for_memo(memo: StanceMemo) -> list[EvidenceClaim]:
     return [*memo.supporting_claims, *memo.rival_critiques]
+
+
+def _semantic_claim_items_from_memos(
+    memos: list[StanceMemo],
+) -> list[tuple[str, str, list[str]]]:
+    return [
+        (memo.stance, claim.text, claim.citations)
+        for memo in memos
+        for claim in _claims_for_memo(memo)
+    ]
+
+
+def _semantic_claim_items_from_report(
+    report: SynthesisReport,
+) -> list[tuple[str, str, list[str]]]:
+    return [
+        (claim.stance, claim.text, claim.citations)
+        for claim in _claims_for_report(report)
+    ]
+
+
+def _claims_for_report(report: SynthesisReport) -> list[Claim]:
+    return [*report.supported_claims, *report.unsupported_claims]
 
 
 def _ratio(numerator: int, denominator: int) -> float:
