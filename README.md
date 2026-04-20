@@ -207,7 +207,7 @@ These are the files where the real decisions live. Read them in this order:
 - [x] Source download and optional auto-ingestion helpers — KGU-105
 - [x] DOI / Unpaywall / arXiv / Semantic Scholar fallback acquisition order
 - [x] Acquisition status and duplicate-download tracking
-- [ ] Eval-generation agent (LLM-authored, corpus-pinned) — KGU-106
+- [x] Eval-generation agent (LLM-authored, corpus-pinned) — KGU-106
 
 ### v4 — framework comparison and deeper evals
 - [ ] CrewAI reimplementation for framework comparison — KGU-114

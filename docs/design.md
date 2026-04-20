@@ -163,7 +163,7 @@ Both will be implemented as one agent with two tools rather than two independent
 
 ### Eval generation (KGU-106)
 
-An eval-generation agent reads ingested papers and produces question sets pinned to source chunk IDs. Three question types:
+An eval-generation agent reads source chunks and produces question sets pinned to source chunk IDs. The structured contracts live in `phil_mind_rag/agents/eval_generation.py`. Three question types:
 
 | Type | What it tests |
 |---|---|
