@@ -22,7 +22,7 @@ Upload a philosophy PDF. Ask a question. The system retrieves the most relevant 
 
 Under the hood: the PDF is parsed into structural sections, split into overlapping chunks, embedded into a vector space, and stored in ChromaDB. At query time, the question is embedded and compared against all stored chunks via cosine similarity. The top-k most similar chunks are passed to an LLM with a prompt that constrains it to answer only from the retrieved context.
 
-## What it becomes (in progress)
+## Multi-agent layer
 
 Three stance agents — materialist, idealist, dualist — each read the same retrieved passages and write a structured memo arguing their philosophical position. A grounding agent reads all three memos, checks every claim against the source chunks, and produces a synthesis report. See [`docs/design.md`](docs/design.md) for the full architecture.
 
@@ -59,7 +59,7 @@ Gradio UI
 
 The key architectural decision: every layer is behind a plain Python interface (`BaseVectorStore`, `BaseRetriever`, `BaseLLM`). `pipeline.py` is the only file that touches all of them. Swapping ChromaDB for Pinecone, or OpenAI for Cohere, means changing one file.
 
-### Upcoming: multi-agent with LangGraph
+### Multi-agent with LangGraph
 
 ```
 User question
@@ -79,6 +79,8 @@ User question
 ```
 
 LangGraph models this as a directed graph where nodes are agent calls and edges are control flow decisions. The parallel fan-out and fan-in pattern is a core LangGraph primitive.
+
+A plain Python orchestration baseline implements the same flow without LangGraph, so framework value can be compared against a minimal control-flow implementation before adding CrewAI or another framework.
 
 ---
 
@@ -190,20 +192,25 @@ These are the files where the real decisions live. Read them in this order:
 - [x] Document registry
 
 ### v2 — multi-agent (in progress)
-- [ ] LangGraph orchestration layer
-- [ ] Materialist, Idealist, Dualist stance agents
-- [ ] Grounding / adjudication agent
-- [ ] `StanceMemo` and `SynthesisReport` Pydantic schemas
-- [ ] Redesigned Gradio UI exposing the memo + adjudication pipeline
-- [ ] Grounding-fidelity eval
+- [x] LangGraph orchestration layer
+- [x] Plain Python orchestration baseline for framework comparison
+- [x] Materialist, Idealist, Dualist stance agents
+- [x] Grounding / adjudication agent
+- [x] `StanceMemo` and `SynthesisReport` Pydantic schemas
+- [x] Gradio UI exposing the memo + adjudication pipeline
+- [x] Deterministic grounding-fidelity eval scaffolding
+- [ ] Semantic support judging beyond chunk-ID validity — KGU-113
+- [ ] Live end-to-end validation with real corpus and paid model calls
 
 ### v3 — corpus pipeline
-- [ ] Web-scanning agent (Semantic Scholar / arXiv) — KGU-104
-- [ ] PDF download and auto-ingestion agent — KGU-105
+- [x] Source discovery helpers with OpenAlex and OpenAI web search — partial KGU-104
+- [x] Source download and optional auto-ingestion helpers — partial KGU-105
+- [ ] DOI / Unpaywall / arXiv / Semantic Scholar fallback acquisition order
+- [ ] Registry-level ingestion status and dedup tracking
 - [ ] Eval-generation agent (LLM-authored, corpus-pinned) — KGU-106
 
 ### v4 — framework comparison and deeper evals
-- [ ] CrewAI reimplementation for framework comparison
+- [ ] CrewAI reimplementation for framework comparison — KGU-114
 - [ ] Stance-biased reranking
 - [ ] Cross-model evaluation (generate with one family, judge with another)
 - [ ] Full eval suite across all three question types

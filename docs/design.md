@@ -43,7 +43,7 @@ The three stance agents must differ in at least one of:
 
 ### Deferred agents
 
-Dualist, Panpsychist, Illusionist, Neutral Monist, Historian/Taxonomy, Red-team Critic — all post-v1.
+Panpsychist, Illusionist, Neutral Monist, Historian/Taxonomy, Red-team Critic — all post-v1.
 
 ---
 
@@ -79,20 +79,25 @@ Formalised as Pydantic models. These are the contracts between agents — changi
 ```python
 from pydantic import BaseModel
 
+class EvidenceClaim(BaseModel):
+    text: str
+    citations: list[str]
+
+
 class StanceMemo(BaseModel):
     stance: str                      # "materialist" | "idealist" | "dualist"
     thesis: str                      # one-sentence position statement
-    supporting_arguments: list[str]  # strongest arguments for the stance
-    attack_on_rivals: list[str]      # strongest objections to opposing stances
+    supporting_claims: list[EvidenceClaim]
+    rival_critiques: list[EvidenceClaim]
     confidence: float                # 0.0–1.0
     uncertainty_notes: str           # what the agent is unsure about
-    citations: list[str]             # chunk IDs from the retrieval result set
 
 
 class Claim(BaseModel):
     text: str
     stance: str
     supported: bool
+    citations: list[str]
     source_chunk_id: str | None      # None if unsupported
     note: str                        # grounding agent's annotation
 
@@ -101,8 +106,10 @@ class SynthesisReport(BaseModel):
     question: str
     areas_of_disagreement: list[str]
     strongest_arguments: dict[str, str]   # stance → best supported argument
+    supported_claims: list[Claim]
     unsupported_claims: list[Claim]
     synthesis: str                        # adjudication / unresolved remainder
+    decisive_chunks: list[str]
     source_chunks_used: list[str]         # all chunk IDs cited across all memos
 ```
 
@@ -123,9 +130,12 @@ These live in `phil_mind_rag/agents/schema.py`.
 
 ## Orchestration framework
 
-**v1: LangGraph** — explicit state machine, inspectable control flow, good observability.
+**v1 primary: LangGraph** — explicit state machine, inspectable control flow, good observability.
 
-**Later: CrewAI** comparison implementation. Comparison dimensions:
+**Implemented comparison baseline: plain Python orchestration** — same retrieve → parallel stances → grounding flow without a graph framework. This gives a concrete baseline for comparing boilerplate, debug ergonomics, and graph-framework value before adding another full agent framework.
+
+**Later: CrewAI** comparison implementation, now tracked separately as
+KGU-114. Comparison dimensions:
 1. Explicitness of state and control flow
 2. Inspectability of multi-agent coordination
 3. Tool use, memory, retry handling
@@ -172,6 +182,13 @@ All generated questions must reference a source chunk ID. No free-floating LLM-p
 | Disagreement quality | Are genuine cruxes surfaced, not generic summaries? |
 | Adjudication quality | Does the grounding agent penalise unsupported claims consistently? |
 | Framework quality | Manual: inspectability, debuggability, maintainability |
+
+The deterministic scaffolding for these checks lives in
+`phil_mind_rag/eval/agent_evaluator.py`. It verifies structural grounding,
+stance coverage, disagreement coverage, and whether the grounding report
+actually adjudicates stance-memo claims. It does not mechanically prove
+semantic entailment; semantic claim support remains LLM-judged plus human
+spot-checking and is tracked separately as KGU-113.
 
 Human spot-check required before any generated eval set is committed as ground truth.
 
