@@ -9,6 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from phil_mind_rag.agents.crewai import (
+    CrewAIUnavailableError,
+    build_crewai_artifacts,
+    run_crewai_analysis,
+)
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.plain import orchestration_profiles, run_plain_analysis
@@ -419,6 +424,7 @@ class TestPlainOrchestration:
         assert {profile.name for profile in profiles} == {
             "langgraph-v1",
             "plain-python-v1",
+            "crewai-v1",
         }
         assert all(profile.tradeoffs for profile in profiles)
 
@@ -467,6 +473,59 @@ class TestPlainOrchestration:
         assert result.idealist_memo.stance == "idealist"
         assert result.dualist_memo.stance == "dualist"
         assert result.report == stub_report
+
+
+class TestCrewAIOrchestration:
+    def test_build_crewai_artifacts_raises_clear_error_when_missing(
+        self,
+        sample_chunks: list[RetrievalResult],
+    ) -> None:
+        with pytest.raises(CrewAIUnavailableError, match="CrewAI is not installed"):
+            build_crewai_artifacts(
+                question="What is consciousness?",
+                chunks=sample_chunks,
+                model="gpt-5-mini",
+            )
+
+    def test_run_crewai_analysis_returns_analysis_result(
+        self,
+        sample_chunks: list[RetrievalResult],
+        stub_memo: StanceMemo,
+        stub_report: SynthesisReport,
+    ) -> None:
+        mat = stub_memo.model_copy(update={"stance": "materialist"})
+        ide = stub_memo.model_copy(update={"stance": "idealist"})
+        dua = stub_memo.model_copy(update={"stance": "dualist"})
+
+        fake_crew = MagicMock()
+        fake_crew.kickoff.return_value = {
+            "materialist_memo": mat.model_dump(),
+            "idealist_memo": ide.model_dump(),
+            "dualist_memo": dua.model_dump(),
+            "report": stub_report.model_dump(),
+        }
+        fake_artifacts = MagicMock(crew=fake_crew)
+
+        mock_pipeline = MagicMock()
+        mock_pipeline.retrieve.return_value = sample_chunks
+        mock_pipeline.answer_from_contexts.return_value = "Baseline grounded answer."
+        mock_settings = MagicMock()
+        mock_settings.openai_chat_model = "gpt-5-mini"
+
+        with patch(
+            "phil_mind_rag.agents.crewai.build_crewai_artifacts",
+            return_value=fake_artifacts,
+        ):
+            result = run_crewai_analysis(
+                "What is consciousness?", mock_pipeline, mock_settings
+            )
+
+        assert isinstance(result, AnalysisResult)
+        assert result.materialist_memo.stance == "materialist"
+        assert result.idealist_memo.stance == "idealist"
+        assert result.dualist_memo.stance == "dualist"
+        assert result.report == stub_report
+        fake_crew.kickoff.assert_called_once()
 
 
 # --- Import / startup regression tests -----------------------------------
