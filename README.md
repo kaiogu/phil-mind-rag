@@ -199,7 +199,7 @@ These are the files where the real decisions live. Read them in this order:
 - [x] `StanceMemo` and `SynthesisReport` Pydantic schemas
 - [x] Gradio UI exposing the memo + adjudication pipeline
 - [x] Deterministic grounding-fidelity eval scaffolding
-- [ ] Semantic support judging beyond chunk-ID validity — KGU-113
+- [x] Semantic support eval hook beyond chunk-ID validity — KGU-113
 - [ ] Live end-to-end validation with real corpus and paid model calls
 
 ### v3 — corpus pipeline

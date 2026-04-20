@@ -10,7 +10,11 @@ from phil_mind_rag.agents.schema import (
     StanceMemo,
     SynthesisReport,
 )
-from phil_mind_rag.eval.agent_evaluator import evaluate_multi_agent_output
+from phil_mind_rag.eval.agent_evaluator import (
+    SemanticSupportLabel,
+    evaluate_multi_agent_output,
+)
+from phil_mind_rag.retrieval.store import RetrievalResult
 
 
 def _memo(stance: str, chunk_id: str = "chunk_0") -> StanceMemo:
@@ -85,6 +89,7 @@ def test_evaluate_multi_agent_output_scores_complete_report_high() -> None:
 
     assert result.overall == pytest.approx(1.0)
     assert "Overall" in result.summary()
+    assert "Semantic support" in result.summary()
 
 
 def test_evaluate_multi_agent_output_penalizes_missing_stance_and_bad_citation() -> (
@@ -116,3 +121,72 @@ def test_evaluate_multi_agent_output_rejects_negative_chunk_count() -> None:
             report=_report(),
             chunk_count=-1,
         )
+
+
+def test_evaluate_multi_agent_output_scores_semantic_support_separately() -> None:
+    def judge(*, claim_text: str, cited_texts: list[str]) -> SemanticSupportLabel:
+        assert cited_texts == ["The brain produces conscious states."]
+        if "unsupported" in claim_text:
+            return "unsupported"
+        if "ambiguous" in claim_text:
+            return "ambiguous"
+        return "supported"
+
+    memo = StanceMemo(
+        stance="materialist",
+        thesis="Consciousness is physically grounded.",
+        supporting_claims=[
+            EvidenceClaim(text="supported memo claim", citations=["chunk_0"]),
+            EvidenceClaim(text="ambiguous memo claim", citations=["chunk_0"]),
+        ],
+        rival_critiques=[
+            EvidenceClaim(text="unsupported memo claim", citations=["chunk_0"])
+        ],
+        confidence=0.7,
+        uncertainty_notes="The evidence is limited.",
+    )
+    report = _report().model_copy(
+        update={
+            "supported_claims": [
+                _claim("supported report claim", "materialist", supported=True)
+            ],
+            "unsupported_claims": [
+                _claim("unsupported report claim", "materialist", supported=False)
+            ],
+        }
+    )
+
+    result = evaluate_multi_agent_output(
+        memos=[memo],
+        report=report,
+        chunk_count=1,
+        expected_stances=("materialist",),
+        chunks=[
+            RetrievalResult(
+                text="The brain produces conscious states.",
+                score=0.9,
+                metadata={"source": "paper.pdf"},
+            )
+        ],
+        semantic_judge=judge,
+    )
+
+    assert result.grounding_fidelity.score == pytest.approx(1.0)
+    assert result.semantic_support.score == pytest.approx(0.5)
+    assert {finding.label for finding in result.semantic_findings} == {
+        "supported",
+        "ambiguous",
+        "unsupported",
+    }
+
+
+def test_evaluate_multi_agent_output_skips_semantic_support_without_judge() -> None:
+    result = evaluate_multi_agent_output(
+        memos=[_memo("materialist"), _memo("idealist"), _memo("dualist")],
+        report=_report(),
+        chunk_count=1,
+    )
+
+    assert result.semantic_support.score == pytest.approx(1.0)
+    assert "skipped" in result.semantic_support.notes[0]
+    assert result.semantic_findings == []

@@ -186,9 +186,10 @@ All generated questions must reference a source chunk ID. No free-floating LLM-p
 The deterministic scaffolding for these checks lives in
 `phil_mind_rag/eval/agent_evaluator.py`. It verifies structural grounding,
 stance coverage, disagreement coverage, and whether the grounding report
-actually adjudicates stance-memo claims. It does not mechanically prove
-semantic entailment; semantic claim support remains LLM-judged plus human
-spot-checking and is tracked separately as KGU-113.
+actually adjudicates stance-memo claims. It also exposes a separate semantic
+support dimension: callers can pass a claim/chunk judge to score whether valid
+citations actually support the claim, instead of treating valid chunk IDs as
+semantic entailment.
 
 Human spot-check required before any generated eval set is committed as ground truth.
 
