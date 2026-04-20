@@ -152,7 +152,7 @@ The existing `RAGPipeline` (parse → chunk → embed → store) is the retrieva
 
 Two new agents extend it for corpus building (tracked separately):
 
-- **KGU-104** — web-scanning agent: discovers important papers by field via academic search APIs
+- **KGU-104** — web-scanning agent: discovers important papers by field via OpenAlex, Semantic Scholar, and OpenAI web search
 - **KGU-105** — download agent: fetches PDFs and ingests via existing `RAGPipeline.ingest()`
 
 Both will be implemented as one agent with two tools rather than two independent agents.

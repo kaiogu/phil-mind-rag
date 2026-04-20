@@ -45,6 +45,7 @@ class SourceCandidate(BaseModel):
     authors: list[str]
     year: int | None = None
     venue: str | None = None
+    doi: str | None = None
     abstract: str = ""
     citation_count: int | None = None
     source_url: str | None = None
@@ -60,6 +61,7 @@ class SourceRecommendation(BaseModel):
     priority: int  # 1 (highest) to 5 (lowest)
     relevance_to_question: str
     suggested_use: str
+    doi: str | None = None
     source_url: str | None = None
     download_url: str | None = None
     access_status: str = "unknown"
@@ -79,6 +81,7 @@ class PaperCandidate(BaseModel):
     authors: list[str]
     year: int | None = None
     venue: str | None = None
+    doi: str | None = None
     abstract: str = ""
     citation_count: int | None = None
     pdf_url: str | None = None

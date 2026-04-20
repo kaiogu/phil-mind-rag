@@ -203,7 +203,7 @@ These are the files where the real decisions live. Read them in this order:
 - [ ] Live end-to-end validation with real corpus and paid model calls
 
 ### v3 — corpus pipeline
-- [x] Source discovery helpers with OpenAlex and OpenAI web search — partial KGU-104
+- [x] Source discovery helpers with OpenAlex, Semantic Scholar, and OpenAI web search — KGU-104
 - [x] Source download and optional auto-ingestion helpers — partial KGU-105
 - [ ] DOI / Unpaywall / arXiv / Semantic Scholar fallback acquisition order
 - [ ] Registry-level ingestion status and dedup tracking

@@ -25,6 +25,7 @@ from phil_mind_rag.agents.schema import (
 from phil_mind_rag.agents.source_search import (
     OpenAIWebSearchProvider,
     OpenAlexSourceProvider,
+    SemanticScholarSourceProvider,
     default_source_providers,
 )
 
@@ -48,6 +49,7 @@ def _source_candidate(
         venue="Mind",
         abstract="A canonical source about consciousness.",
         citation_count=500,
+        doi="10.1234/example",
         source_url="https://example.com/source",
         download_url=download_url,
         access_status=access_status,
@@ -63,6 +65,7 @@ def _paper_candidate(title: str, pdf_url: str | None = None) -> PaperCandidate:
         venue="Mind",
         abstract="A canonical paper about consciousness.",
         citation_count=500,
+        doi="10.1234/paper",
         pdf_url=pdf_url,
         source_url="https://example.com/paper",
     )
@@ -138,6 +141,7 @@ def test_suggest_sources_returns_structured_report() -> None:
     assert kwargs["schema_cls"] is SourceDiscoveryReport
     assert "Candidate sources" in kwargs["user"]
     assert "Type: book" in kwargs["user"]
+    assert "DOI: 10.1234/example" in kwargs["user"]
     assert "Publisher-controlled full text." in kwargs["user"]
 
 
@@ -246,6 +250,48 @@ def test_discover_sources_rejects_empty_provider_set() -> None:
         )
 
 
+def test_discover_sources_skips_failed_provider_when_others_return_results() -> None:
+    class _BrokenProvider:
+        def search(self, query: str, limit: int = 5) -> list[SourceCandidate]:
+            raise RuntimeError("rate limited")
+
+    class _WorkingProvider:
+        def search(self, query: str, limit: int = 5) -> list[SourceCandidate]:
+            return [_source_candidate("Working Source")]
+
+    with patch(
+        "phil_mind_rag.agents.paper_tools.suggest_sources",
+        return_value=_source_report(),
+    ) as mocked:
+        result = discover_sources(
+            field="philosophy of mind",
+            question="hard problem",
+            providers=[_BrokenProvider(), _WorkingProvider()],
+            client=MagicMock(),
+            model="gpt-5-mini",
+        )
+
+    assert result == _source_report()
+    assert [c.title for c in mocked.call_args.kwargs["candidates"]] == [
+        "Working Source"
+    ]
+
+
+def test_discover_sources_reports_provider_errors_when_all_fail() -> None:
+    class _BrokenProvider:
+        def search(self, query: str, limit: int = 5) -> list[SourceCandidate]:
+            raise RuntimeError("rate limited")
+
+    with pytest.raises(ValueError, match="provider errors"):
+        discover_sources(
+            field="philosophy of mind",
+            question="hard problem",
+            providers=[_BrokenProvider()],
+            client=MagicMock(),
+            model="gpt-5-mini",
+        )
+
+
 def test_openalex_provider_maps_results() -> None:
     provider = OpenAlexSourceProvider(
         email="me@example.com",
@@ -262,6 +308,7 @@ def test_openalex_provider_maps_results() -> None:
                         "source": {"display_name": "Journal of Consciousness Studies"},
                     },
                     "open_access": {"oa_url": "https://example.com/facing-up.pdf"},
+                    "doi": "https://doi.org/10.1234/facing-up",
                     "abstract_inverted_index": {
                         "hard": [0],
                         "problem": [1],
@@ -279,7 +326,39 @@ def test_openalex_provider_maps_results() -> None:
     assert results[0].source_type == "paper"
     assert results[0].authors == ["David Chalmers"]
     assert results[0].download_url == "https://example.com/facing-up.pdf"
+    assert results[0].doi == "10.1234/facing-up"
     assert results[0].abstract == "hard problem of consciousness"
+
+
+def test_semantic_scholar_provider_maps_results() -> None:
+    provider = SemanticScholarSourceProvider(
+        fetcher=lambda _: {
+            "data": [
+                {
+                    "title": "Facing Up",
+                    "authors": [{"name": "David Chalmers"}],
+                    "year": 1995,
+                    "venue": "Journal of Consciousness Studies",
+                    "abstract": "A paper about the hard problem.",
+                    "citationCount": 4321,
+                    "url": "https://semanticscholar.org/paper/123",
+                    "externalIds": {"DOI": "10.1234/facing-up"},
+                    "openAccessPdf": {"url": "https://example.com/facing-up.pdf"},
+                    "isOpenAccess": True,
+                }
+            ]
+        },
+    )
+
+    results = provider.search("hard problem", limit=1)
+
+    assert results[0].title == "Facing Up"
+    assert results[0].source_type == "paper"
+    assert results[0].authors == ["David Chalmers"]
+    assert results[0].doi == "10.1234/facing-up"
+    assert results[0].citation_count == 4321
+    assert results[0].download_url == "https://example.com/facing-up.pdf"
+    assert results[0].access_status == "open"
 
 
 def test_openai_web_search_provider_maps_results() -> None:
@@ -321,6 +400,7 @@ def test_default_source_providers_includes_openai_web_search() -> None:
     names = {provider.__class__.__name__ for provider in providers}
 
     assert "OpenAlexSourceProvider" in names
+    assert "SemanticScholarSourceProvider" in names
     assert "OpenAIWebSearchProvider" in names
 
 
