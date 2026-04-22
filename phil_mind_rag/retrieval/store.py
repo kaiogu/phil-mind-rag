@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -63,14 +64,14 @@ class ChromaVectorStore(BaseVectorStore):
         )
 
     def add_chunks(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:
-        ids = [f"chunk_{i}_{hash(c.text) % 10**8}" for i, c in enumerate(chunks)]
-        self._collection.add(
+        ids = [_stable_vector_id(chunk, index) for index, chunk in enumerate(chunks)]
+        self._collection.upsert(
             ids=ids,
             documents=[c.text for c in chunks],
             embeddings=embeddings,  # type: ignore
             metadatas=[c.metadata for c in chunks],
         )
-        logger.info("Added %d chunks to ChromaDB", len(chunks))
+        logger.info("Upserted %d chunks to ChromaDB", len(chunks))
 
     def query(self, embedding: list[float], top_k: int = 5) -> list[RetrievalResult]:
         results = self._collection.query(
@@ -96,3 +97,11 @@ class ChromaVectorStore(BaseVectorStore):
 
     def count(self) -> int:
         return self._collection.count()
+
+
+def _stable_vector_id(chunk: Chunk, index: int) -> str:
+    """Return a deterministic vector-store ID for a chunk."""
+    if source_chunk_id := chunk.metadata.get("source_chunk_id"):
+        return source_chunk_id
+    digest = sha256(f"{index}\0{chunk.text}".encode()).hexdigest()[:16]
+    return f"chunk_{index}_{digest}"
