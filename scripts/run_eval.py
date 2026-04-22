@@ -9,7 +9,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from pathlib import Path
@@ -18,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from phil_mind_rag.config import get_settings
-from phil_mind_rag.eval.evaluator import EvalSample, RAGEvaluator
+from phil_mind_rag.eval.evaluator import EvalSample, RAGEvaluator, load_eval_questions
 from phil_mind_rag.pipeline import RAGPipeline
 
 
@@ -30,7 +29,7 @@ def main() -> None:
         "--eval-set",
         type=Path,
         default=Path("data/eval_set.json"),
-        help="Path to the JSON eval set (list of {question, ground_truth} objects).",
+        help="Path to the JSON eval set.",
     )
     parser.add_argument(
         "--top-k",
@@ -49,8 +48,8 @@ def main() -> None:
         logger.error("Eval set not found: %s", args.eval_set)
         sys.exit(1)
 
-    raw = json.loads(args.eval_set.read_text())
-    logger.info("Loaded %d eval samples from %s", len(raw), args.eval_set)
+    questions = load_eval_questions(args.eval_set)
+    logger.info("Loaded %d eval questions from %s", len(questions), args.eval_set)
 
     settings = get_settings()
     pipeline = RAGPipeline(settings)
@@ -62,24 +61,29 @@ def main() -> None:
         )
         sys.exit(1)
 
-    logger.info("Generating answers for %d questions (top_k=%d)…", len(raw), args.top_k)
+    logger.info(
+        "Generating answers for %d questions (top_k=%d)…",
+        len(questions),
+        args.top_k,
+    )
     samples: list[EvalSample] = []
-    for i, item in enumerate(raw, 1):
-        question = item["question"]
-        ground_truth = item["ground_truth"]
-
-        contexts = pipeline.retrieve(question, top_k=args.top_k)
-        answer = pipeline.query(question, top_k=args.top_k)
+    for i, eval_question in enumerate(questions, 1):
+        contexts = pipeline.retrieve(eval_question.question, top_k=args.top_k)
+        answer = pipeline.query(eval_question.question, top_k=args.top_k)
 
         samples.append(
-            EvalSample(
-                question=question,
+            eval_question.to_sample(
                 answer=answer,
                 contexts=[r.text for r in contexts],
-                ground_truth=ground_truth,
             )
         )
-        logger.info("[%d/%d] answered: %s…", i, len(raw), question[:60])
+        logger.info(
+            "[%d/%d] answered %s: %s…",
+            i,
+            len(questions),
+            eval_question.id,
+            eval_question.question[:60],
+        )
 
     logger.info("Running RAGAS evaluation…")
     evaluator = RAGEvaluator()
