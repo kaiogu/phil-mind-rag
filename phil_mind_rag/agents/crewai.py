@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-from phil_mind_rag.agents.graph import AnalysisResult
+from phil_mind_rag.agents.graph import AnalysisResult, verify_analysis_claims
 from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport
 
 if TYPE_CHECKING:
@@ -59,6 +59,14 @@ def run_crewai_analysis(
     )
     mat, ide, dua, report = _parse_crewai_output(raw_output)
     baseline_answer = pipeline.answer_from_contexts(question, chunks)
+    verified_claims = verify_analysis_claims(
+        baseline_answer=baseline_answer,
+        report=report,
+        chunks=chunks,
+        materialist_memo=mat,
+        idealist_memo=ide,
+        dualist_memo=dua,
+    )
 
     return AnalysisResult(
         baseline_answer=baseline_answer,
@@ -67,6 +75,7 @@ def run_crewai_analysis(
         materialist_memo=mat,
         idealist_memo=ide,
         dualist_memo=dua,
+        verified_claims=verified_claims,
     )
 
 

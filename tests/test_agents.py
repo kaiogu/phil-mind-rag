@@ -644,6 +644,11 @@ class TestRunAnalysis:
         assert isinstance(result.dualist_memo, StanceMemo)
         assert result.baseline_answer == "Baseline grounded answer."
         assert len(result.chunks) == 2
+        assert result.verified_claims
+        assert any(
+            claim.claim.source == "synthesis_supported"
+            for claim in result.verified_claims
+        )
 
     def test_retrieval_called_with_question(
         self,
@@ -736,6 +741,7 @@ class TestPlainOrchestration:
         assert result.idealist_memo.stance == "idealist"
         assert result.dualist_memo.stance == "dualist"
         assert result.report == stub_report
+        assert result.verified_claims
 
 
 class TestCrewAIOrchestration:
@@ -788,6 +794,7 @@ class TestCrewAIOrchestration:
         assert result.idealist_memo.stance == "idealist"
         assert result.dualist_memo.stance == "dualist"
         assert result.report == stub_report
+        assert result.verified_claims
         fake_crew.kickoff.assert_called_once()
 
 

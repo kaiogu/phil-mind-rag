@@ -4,18 +4,20 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 
+from phil_mind_rag.agents.claim_extraction import extract_analysis_claims
+from phil_mind_rag.agents.claim_verification import verify_claims
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 from phil_mind_rag.agents.state import AgentState
 
 if TYPE_CHECKING:
-    from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport
+    from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport, VerifiedClaim
     from phil_mind_rag.config import Settings
     from phil_mind_rag.pipeline import RAGPipeline
     from phil_mind_rag.retrieval.store import RetrievalResult
@@ -31,6 +33,7 @@ class AnalysisResult:
     materialist_memo: StanceMemo
     idealist_memo: StanceMemo
     dualist_memo: StanceMemo
+    verified_claims: list[VerifiedClaim] = field(default_factory=list)
 
 
 logger = logging.getLogger(__name__)
@@ -98,6 +101,14 @@ def run_analysis(
         raise RuntimeError("One or more agents returned no output")
 
     baseline_answer = pipeline.answer_from_contexts(question, final["chunks"])
+    verified_claims = verify_analysis_claims(
+        baseline_answer=baseline_answer,
+        report=report,
+        chunks=final["chunks"],
+        materialist_memo=mat,
+        idealist_memo=ide,
+        dualist_memo=dua,
+    )
 
     return AnalysisResult(
         baseline_answer=baseline_answer,
@@ -106,4 +117,23 @@ def run_analysis(
         materialist_memo=mat,
         idealist_memo=ide,
         dualist_memo=dua,
+        verified_claims=verified_claims,
     )
+
+
+def verify_analysis_claims(
+    *,
+    baseline_answer: str,
+    report: SynthesisReport,
+    chunks: list[RetrievalResult],
+    materialist_memo: StanceMemo,
+    idealist_memo: StanceMemo,
+    dualist_memo: StanceMemo,
+) -> list[VerifiedClaim]:
+    """Extract and structurally verify claims from a complete analysis result."""
+    claims = extract_analysis_claims(
+        memos=[materialist_memo, idealist_memo, dualist_memo],
+        report=report,
+        baseline_answer=baseline_answer,
+    )
+    return verify_claims(claims, chunks)
