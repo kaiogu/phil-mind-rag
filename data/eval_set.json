@@ -1,50 +1,110 @@
 [
   {
+    "id": "nagel_001",
     "question": "What is the central claim Nagel makes about consciousness and the mind-body problem?",
-    "ground_truth": "Nagel argues that consciousness is what makes the mind-body problem really intractable. Without consciousness the problem would be much less interesting; with it, the problem seems hopeless. Current reductionist theories fail to explain conscious experience because they do not address its most important and characteristic feature: the subjective character of experience."
+    "ground_truth": "Nagel argues that consciousness is what makes the mind-body problem really intractable. Without consciousness the problem would be much less interesting; with it, the problem seems hopeless. Current reductionist theories fail to explain conscious experience because they do not address its most important and characteristic feature: the subjective character of experience.",
+    "type": "factual_retrieval",
+    "difficulty": "easy",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_002",
     "question": "What does Nagel mean by saying there is 'something it is like' to be an organism?",
-    "ground_truth": "Nagel uses the phrase 'something it is like' to capture the subjective character of conscious experience. An organism has conscious mental states if and only if there is something it is like to be that organism — that is, some subjective, first-person quality to its experience. This is the fundamental fact about consciousness that reductionist accounts fail to capture."
+    "ground_truth": "Nagel uses the phrase 'something it is like' to capture the subjective character of conscious experience. An organism has conscious mental states if and only if there is something it is like to be that organism — that is, some subjective, first-person quality to its experience. This is the fundamental fact about consciousness that reductionist accounts fail to capture.",
+    "type": "factual_retrieval",
+    "difficulty": "easy",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_003",
     "question": "Why does Nagel use bats as his key example?",
-    "ground_truth": "Nagel chooses bats because they are mammals (clearly conscious), yet their primary sensory modality — echolocation — is so different from any human sense that we cannot imaginatively project ourselves into their experience. We can form no conception of what it is like to perceive the world through sonar, which illustrates that subjective experience cannot be fully captured by objective, third-person descriptions."
+    "ground_truth": "Nagel chooses bats because they are mammals (clearly conscious), yet their primary sensory modality — echolocation — is so different from any human sense that we cannot imaginatively project ourselves into their experience. We can form no conception of what it is like to perceive the world through sonar, which illustrates that subjective experience cannot be fully captured by objective, third-person descriptions.",
+    "type": "factual_retrieval",
+    "difficulty": "easy",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_004",
     "question": "What is Nagel's critique of reductionist accounts of the mind?",
-    "ground_truth": "Nagel argues that reductionist accounts fail because they try to explain mental phenomena using concepts suited for objective, physical descriptions, which are fundamentally different from the subjective character of conscious experience. Analogies to successful scientific reductions — water to H₂O, genes to DNA — do not help because they do not involve the first-person, subjective dimension that consciousness uniquely has."
+    "ground_truth": "Nagel argues that reductionist accounts fail because they try to explain mental phenomena using concepts suited for objective, physical descriptions, which are fundamentally different from the subjective character of conscious experience. Analogies to successful scientific reductions — water to H₂O, genes to DNA — do not help because they do not involve the first-person, subjective dimension that consciousness uniquely has.",
+    "type": "factual_retrieval",
+    "difficulty": "medium",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_005",
     "question": "What distinction does Nagel draw between objective and subjective facts?",
-    "ground_truth": "Nagel distinguishes between objective facts, which can be understood from a third-person, view-from-nowhere perspective, and subjective facts, which are essentially tied to a particular point of view. Conscious experience is irreducibly subjective: its essence is that there is something it is like from the inside. Any objective account necessarily loses this subjective character."
+    "ground_truth": "Nagel distinguishes between objective facts, which can be understood from a third-person, view-from-nowhere perspective, and subjective facts, which are essentially tied to a particular point of view. Conscious experience is irreducibly subjective: its essence is that there is something it is like from the inside. Any objective account necessarily loses this subjective character.",
+    "type": "factual_retrieval",
+    "difficulty": "medium",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_006",
     "question": "What does Nagel say about the possibility of imagining bat experience?",
-    "ground_truth": "Nagel argues that even if we tried to imagine what it is like to be a bat — imagining having sonar, hanging upside down, flying at night — we would only be imagining what it would be like for us to behave that way. We cannot genuinely adopt the bat's point of view. Our imaginative resources are limited by our own experience, so we cannot conceive of bat sonar experience from the inside."
+    "ground_truth": "Nagel argues that even if we tried to imagine what it is like to be a bat — imagining having sonar, hanging upside down, flying at night — we would only be imagining what it would be like for us to behave that way. We cannot genuinely adopt the bat's point of view. Our imaginative resources are limited by our own experience, so we cannot conceive of bat sonar experience from the inside.",
+    "type": "factual_retrieval",
+    "difficulty": "medium",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_007",
     "question": "How does Nagel relate the hard problem to physicalism?",
-    "ground_truth": "Nagel contends that we currently have no conception of what an explanation of the physical nature of a mental phenomenon would be. Even if physicalism is true — even if mental states are identical to physical states — we do not understand how or why physical processes give rise to subjective experience. The explanatory gap between objective physical descriptions and subjective experience remains unbridged."
+    "ground_truth": "Nagel contends that we currently have no conception of what an explanation of the physical nature of a mental phenomenon would be. Even if physicalism is true — even if mental states are identical to physical states — we do not understand how or why physical processes give rise to subjective experience. The explanatory gap between objective physical descriptions and subjective experience remains unbridged.",
+    "type": "stance_divergence",
+    "difficulty": "medium",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_008",
     "question": "What does Nagel mean by the 'subjective character of experience'?",
-    "ground_truth": "The subjective character of experience refers to the qualitative, first-person aspect of conscious states — what philosophers later called qualia. It is the 'what it is like' dimension of experience. Nagel argues this feature is not captured by any functional, behavioral, or physical description, because such descriptions are objective and leave out the inner, felt quality of experience."
+    "ground_truth": "The subjective character of experience refers to the qualitative, first-person aspect of conscious states — what philosophers later called qualia. It is the 'what it is like' dimension of experience. Nagel argues this feature is not captured by any functional, behavioral, or physical description, because such descriptions are objective and leave out the inner, felt quality of experience.",
+    "type": "factual_retrieval",
+    "difficulty": "easy",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_009",
     "question": "Does Nagel think the mind-body problem is permanently unsolvable?",
-    "ground_truth": "Nagel does not conclude that the mind-body problem is permanently unsolvable. He suggests that perhaps a new theoretical form can be devised for the purpose, but such a solution, if it exists, lies in the distant intellectual future. His argument is that no currently available concept of reduction is applicable to consciousness, not that none ever could be."
+    "ground_truth": "Nagel does not conclude that the mind-body problem is permanently unsolvable. He suggests that perhaps a new theoretical form can be devised for the purpose, but such a solution, if it exists, lies in the distant intellectual future. His argument is that no currently available concept of reduction is applicable to consciousness, not that none ever could be.",
+    "type": "factual_retrieval",
+    "difficulty": "medium",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_010",
     "question": "What is the significance of Nagel's paper for philosophy of mind?",
-    "ground_truth": "Nagel's paper is foundational because it clearly articulated the explanatory gap between physical processes and subjective experience — anticipating what David Chalmers later called the 'hard problem of consciousness'. It challenged the then-dominant reductionist and functionalist programs by showing that they failed to address the subjective, first-person character of experience, and it introduced the influential 'what it is like' formulation that became central to debates about qualia and phenomenal consciousness."
+    "ground_truth": "Nagel's paper is foundational because it clearly articulated the explanatory gap between physical processes and subjective experience — anticipating what David Chalmers later called the 'hard problem of consciousness'. It challenged the then-dominant reductionist and functionalist programs by showing that they failed to address the subjective, first-person character of experience, and it introduced the influential 'what it is like' formulation that became central to debates about qualia and phenomenal consciousness.",
+    "type": "source_attribution",
+    "difficulty": "hard",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_011",
     "question": "What does Nagel say about the relationship between consciousness and animal life?",
-    "ground_truth": "Nagel notes that conscious experience is a widespread phenomenon occurring at many levels of animal life, though it is difficult to determine its presence in simpler organisms. He suggests that conscious experience likely occurs in countless forms totally unimaginable to us across the universe. The basic criterion is whether there is something it is like to be that organism — a condition he believes is met by mammals like bats."
+    "ground_truth": "Nagel notes that conscious experience is a widespread phenomenon occurring at many levels of animal life, though it is difficult to determine its presence in simpler organisms. He suggests that conscious experience likely occurs in countless forms totally unimaginable to us across the universe. The basic criterion is whether there is something it is like to be that organism — a condition he believes is met by mammals like bats.",
+    "type": "factual_retrieval",
+    "difficulty": "medium",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   },
   {
+    "id": "nagel_012",
     "question": "What role do reductionist analogies play in Nagel's argument?",
-    "ground_truth": "Nagel critically examines analogies that reductionists use to support physicalist reduction — such as water being H₂O, lightning being electrical discharge, or genes being DNA. He argues these analogies do not help us understand the mind-brain relation because those reductions involved objective phenomena on both sides. Consciousness involves an irreducibly subjective side, so the analogy breaks down. Philosophers rely on these familiar cases because the mental is incomprehensible in the same terms, but that reliance leads to implausible accounts of the mental."
+    "ground_truth": "Nagel critically examines analogies that reductionists use to support physicalist reduction — such as water being H₂O, lightning being electrical discharge, or genes being DNA. He argues these analogies do not help us understand the mind-brain relation because those reductions involved objective phenomena on both sides. Consciousness involves an irreducibly subjective side, so the analogy breaks down. Philosophers rely on these familiar cases because the mental is incomprehensible in the same terms, but that reliance leads to implausible accounts of the mental.",
+    "type": "grounding_fidelity",
+    "difficulty": "hard",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": []
   }
 ]

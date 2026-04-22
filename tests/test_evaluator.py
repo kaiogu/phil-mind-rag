@@ -2,7 +2,14 @@
 
 import pytest
 
-from phil_mind_rag.eval.evaluator import EvalResult, EvalSample, RAGEvaluator
+from phil_mind_rag.eval.evaluator import (
+    EvalQuestion,
+    EvalResult,
+    EvalSample,
+    RAGEvaluator,
+    load_eval_questions,
+    to_ragas_eval_rows,
+)
 
 
 class TestEvalResult:
@@ -45,6 +52,124 @@ class TestEvalSample:
         )
         assert sample.question == "What is consciousness?"
         assert len(sample.contexts) == 1
+
+
+class TestEvalQuestion:
+    def test_parses_chunk_pinned_schema(self) -> None:
+        question = EvalQuestion.from_mapping(
+            {
+                "id": "nagel_001",
+                "question": "What does Nagel mean by subjectivity?",
+                "answer": "He means the what-it-is-like character of experience.",
+                "type": "factual_retrieval",
+                "difficulty": "easy",
+                "expected_sources": ["nagel_bat"],
+                "expected_chunk_ids": ["nagel_bat:section_1:chunk_0"],
+            },
+            index=1,
+        )
+
+        assert question.id == "nagel_001"
+        assert question.ground_truth.startswith("He means")
+        assert question.question_type == "factual_retrieval"
+        assert question.difficulty == "easy"
+        assert question.expected_sources == ["nagel_bat"]
+        assert question.expected_chunk_ids == ["nagel_bat:section_1:chunk_0"]
+
+    def test_parses_legacy_ragas_schema_with_defaults(self) -> None:
+        question = EvalQuestion.from_mapping(
+            {
+                "question": "What is consciousness?",
+                "ground_truth": "Consciousness has subjective character.",
+            },
+            index=7,
+        )
+
+        assert question.id == "eval_007"
+        assert question.question_type == "factual_retrieval"
+        assert question.difficulty == "medium"
+        assert question.expected_sources == []
+        assert question.expected_chunk_ids == []
+
+    def test_converts_to_ragas_row(self) -> None:
+        question = EvalQuestion.from_mapping(
+            {
+                "id": "q1",
+                "question": "What is consciousness?",
+                "reference_answer": "Subjective experience.",
+            },
+            index=1,
+        )
+
+        assert question.to_ragas_row() == {
+            "question": "What is consciousness?",
+            "ground_truth": "Subjective experience.",
+        }
+        assert to_ragas_eval_rows([question]) == [question.to_ragas_row()]
+
+    def test_to_sample_uses_generated_answer_and_contexts(self) -> None:
+        question = EvalQuestion.from_mapping(
+            {
+                "id": "q1",
+                "question": "What is consciousness?",
+                "ground_truth": "Subjective experience.",
+            },
+            index=1,
+        )
+
+        sample = question.to_sample(answer="Generated.", contexts=["Context."])
+
+        assert sample.question == question.question
+        assert sample.answer == "Generated."
+        assert sample.contexts == ["Context."]
+        assert sample.ground_truth == question.ground_truth
+
+    @pytest.mark.parametrize(
+        "row",
+        [
+            {"ground_truth": "Missing question."},
+            {"question": "Missing answer."},
+            {
+                "question": "Bad type.",
+                "ground_truth": "Answer.",
+                "type": "bad_type",
+            },
+            {
+                "question": "Bad difficulty.",
+                "ground_truth": "Answer.",
+                "difficulty": "impossible",
+            },
+            {
+                "question": "Bad sources.",
+                "ground_truth": "Answer.",
+                "expected_sources": "nagel",
+            },
+        ],
+    )
+    def test_rejects_invalid_rows(self, row: dict[str, object]) -> None:
+        with pytest.raises(ValueError):
+            EvalQuestion.from_mapping(row, index=1)
+
+    def test_load_eval_questions_from_json_file(self, tmp_path) -> None:
+        eval_path = tmp_path / "eval_set.json"
+        eval_path.write_text(
+            """
+            [
+              {
+                "id": "nagel_001",
+                "question": "What is consciousness?",
+                "ground_truth": "Subjective experience.",
+                "expected_sources": ["nagel_bat"],
+                "expected_chunk_ids": []
+              }
+            ]
+            """
+        )
+
+        questions = load_eval_questions(eval_path)
+
+        assert len(questions) == 1
+        assert questions[0].id == "nagel_001"
 
 
 class TestRAGEvaluatorMocked:
