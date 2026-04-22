@@ -26,8 +26,16 @@ from phil_mind_rag.agents.crewai import (
     build_crewai_artifacts,
     run_crewai_analysis,
 )
-from phil_mind_rag.agents.evidence import build_evidence_pack
-from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
+from phil_mind_rag.agents.evidence import (
+    build_evidence_pack,
+    build_stance_evidence_sets,
+    build_stance_query,
+)
+from phil_mind_rag.agents.graph import (
+    AnalysisResult,
+    retrieve_stance_evidence,
+    run_analysis,
+)
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.plain import orchestration_profiles, run_plain_analysis
 from phil_mind_rag.agents.prompts import grounding_prompt, stance_prompt
@@ -454,6 +462,56 @@ class TestPrompts:
 
 
 class TestEvidencePacks:
+    def test_build_stance_query_adds_retrieval_focus(self) -> None:
+        query = build_stance_query("What is consciousness?", "materialist")
+
+        assert "What is consciousness?" in query
+        assert "neural" in query
+        assert "physicalism" in query
+
+    def test_build_stance_evidence_sets_assigns_global_chunk_ids(self) -> None:
+        base = [
+            RetrievalResult(
+                text="Base passage.",
+                score=0.9,
+                metadata={"source_chunk_id": "source:intro:chunk_0"},
+            )
+        ]
+        materialist = [
+            RetrievalResult(
+                text="Materialist passage.",
+                score=0.8,
+                metadata={"source_chunk_id": "source:brain:chunk_0"},
+            ),
+            base[0],
+        ]
+        idealist = [
+            RetrievalResult(
+                text="Idealist passage.",
+                score=0.7,
+                metadata={"source_chunk_id": "source:qualia:chunk_0"},
+            )
+        ]
+
+        evidence_sets = build_stance_evidence_sets(
+            base_chunks=base,
+            stance_chunks={
+                "materialist": materialist,
+                "idealist": idealist,
+                "dualist": [],
+            },
+        )
+
+        assert [chunk.metadata["chunk_id"] for chunk in evidence_sets.chunks] == [
+            "chunk_0",
+            "chunk_1",
+            "chunk_2",
+        ]
+        assert [
+            chunk.metadata["chunk_id"]
+            for chunk in evidence_sets.by_stance["materialist"]
+        ] == ["chunk_0", "chunk_1"]
+
     def test_materialist_evidence_pack_prioritizes_physical_terms(
         self,
     ) -> None:
@@ -496,6 +554,20 @@ class TestEvidencePacks:
 
         assert pack.chunk_ids == ["chunk_1", "chunk_0"]
         assert pack.chunks[0].metadata["chunk_id"] == "chunk_1"
+
+    def test_evidence_pack_preserves_global_chunk_ids(self) -> None:
+        chunks = [
+            RetrievalResult(
+                text="The brain has neural correlates.",
+                score=0.9,
+                metadata={"chunk_id": "chunk_7"},
+            )
+        ]
+
+        pack = build_evidence_pack("materialist", chunks)
+
+        assert pack.chunk_ids == ["chunk_7"]
+        assert pack.chunks[0].metadata["chunk_id"] == "chunk_7"
 
 
 class TestStanceNodes:
@@ -646,6 +718,27 @@ class TestGroundingNode:
 
 
 class TestRunAnalysis:
+    def test_retrieve_stance_evidence_calls_stance_specific_queries(self) -> None:
+        pipeline = MagicMock()
+        base = [RetrievalResult(text="Base.", score=0.9, metadata={})]
+        mat = [RetrievalResult(text="Brain neural evidence.", score=0.8, metadata={})]
+        ide = [RetrievalResult(text="Subjective experience.", score=0.7, metadata={})]
+        dua = [RetrievalResult(text="Mental and physical.", score=0.6, metadata={})]
+        pipeline.retrieve.side_effect = [base, mat, ide, dua]
+
+        evidence_sets = retrieve_stance_evidence("What is consciousness?", pipeline)
+
+        assert pipeline.retrieve.call_count == 4
+        retrieved_queries = [call.args[0] for call in pipeline.retrieve.call_args_list]
+        assert retrieved_queries[0] == "What is consciousness?"
+        assert "neural" in retrieved_queries[1]
+        assert "subjective" in retrieved_queries[2]
+        assert "dualism" in retrieved_queries[3]
+        assert len(evidence_sets.chunks) == 4
+        assert evidence_sets.by_stance["materialist"][0].metadata["chunk_id"] == (
+            "chunk_0"
+        )
+
     def test_returns_analysis_result(
         self,
         sample_chunks: list[RetrievalResult],
@@ -734,10 +827,13 @@ class TestRunAnalysis:
         with patch("phil_mind_rag.agents.graph.OpenAI"), stance_patch, ground_patch:
             run_analysis("Hard problem of consciousness", mock_pipeline, mock_settings)
 
-        mock_pipeline.retrieve.assert_called_once_with("Hard problem of consciousness")
-        mock_pipeline.answer_from_contexts.assert_called_once_with(
-            "Hard problem of consciousness", sample_chunks
+        assert mock_pipeline.retrieve.call_count == 4
+        assert mock_pipeline.retrieve.call_args_list[0].args == (
+            "Hard problem of consciousness",
         )
+        answer_args = mock_pipeline.answer_from_contexts.call_args.args
+        assert answer_args[0] == "Hard problem of consciousness"
+        assert len(answer_args[1]) == len(sample_chunks)
 
 
 class TestPlainOrchestration:
@@ -798,6 +894,7 @@ class TestPlainOrchestration:
         assert result.report == stub_report
         assert result.verified_claims
         assert result.argument_map is not None
+        assert mock_pipeline.retrieve.call_count == 4
 
 
 class TestCrewAIOrchestration:

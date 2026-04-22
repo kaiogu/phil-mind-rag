@@ -15,7 +15,11 @@ from typing import TYPE_CHECKING
 from openai import OpenAI
 
 from phil_mind_rag.agents.argument_map import build_argument_map
-from phil_mind_rag.agents.graph import AnalysisResult, verify_analysis_claims
+from phil_mind_rag.agents.graph import (
+    AnalysisResult,
+    retrieve_stance_evidence,
+    verify_analysis_claims,
+)
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 
@@ -111,10 +115,14 @@ def run_plain_analysis(
     model = settings.openai_chat_model
 
     logger.info("Retrieving context for: %s", question[:80])
-    chunks = pipeline.retrieve(question)
+    evidence_sets = retrieve_stance_evidence(question, pipeline)
+    chunks = evidence_sets.chunks
     state: AgentState = {
         "question": question,
         "chunks": chunks,
+        "materialist_chunks": evidence_sets.by_stance["materialist"],
+        "idealist_chunks": evidence_sets.by_stance["idealist"],
+        "dualist_chunks": evidence_sets.by_stance["dualist"],
         "materialist_memo": None,
         "idealist_memo": None,
         "dualist_memo": None,
