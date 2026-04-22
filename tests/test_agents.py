@@ -15,6 +15,11 @@ from phil_mind_rag.agents.claim_extraction import (
     claims_from_synthesis_report,
     extract_analysis_claims,
 )
+from phil_mind_rag.agents.claim_verification import (
+    ClaimSupportLabel,
+    verify_claim,
+    verify_claims,
+)
 from phil_mind_rag.agents.crewai import (
     CrewAIUnavailableError,
     build_crewai_artifacts,
@@ -31,6 +36,7 @@ from phil_mind_rag.agents.schema import (
     EvidenceClaim,
     StanceMemo,
     SynthesisReport,
+    VerifiedClaim,
 )
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 from phil_mind_rag.agents.state import AgentState
@@ -160,6 +166,21 @@ class TestSchema:
 
         assert AtomicClaim.model_validate_json(claim.model_dump_json()) == claim
 
+    def test_verified_claim_round_trip(self) -> None:
+        claim = AtomicClaim(
+            text="Nagel pressures reductionism.",
+            source="stance_support",
+            citations=["chunk_0"],
+        )
+        verified = VerifiedClaim(
+            claim=claim,
+            label="ambiguous",
+            citations=["chunk_0"],
+            note="Structurally valid.",
+        )
+
+        assert VerifiedClaim.model_validate_json(verified.model_dump_json()) == verified
+
 
 # --- Claim extraction tests ---------------------------------------------
 
@@ -220,6 +241,101 @@ class TestClaimExtraction:
         ]
         assert len(keys) == len(set(keys))
         assert any(claim.source == "baseline_answer" for claim in claims)
+
+
+class TestClaimVerification:
+    def test_verify_claim_labels_valid_citation_ambiguous_without_judge(self) -> None:
+        claim = AtomicClaim(
+            text="Consciousness has subjective character.",
+            source="stance_support",
+            citations=["chunk_0"],
+        )
+        result = verify_claim(
+            claim,
+            chunk_text_by_id={"chunk_0": "Consciousness has subjective character."},
+        )
+
+        assert result.label == "ambiguous"
+        assert result.citations == ["chunk_0"]
+        assert "no semantic judge" in result.note
+
+    def test_verify_claim_uses_semantic_judge(self) -> None:
+        claim = AtomicClaim(
+            text="Consciousness has subjective character.",
+            source="stance_support",
+            citations=["chunk_0"],
+        )
+
+        def judge(*, claim_text: str, cited_texts: list[str]) -> ClaimSupportLabel:
+            assert claim_text == claim.text
+            assert cited_texts == ["Consciousness has subjective character."]
+            return "supported"
+
+        result = verify_claim(
+            claim,
+            chunk_text_by_id={"chunk_0": "Consciousness has subjective character."},
+            semantic_judge=judge,
+        )
+
+        assert result.label == "supported"
+        assert result.repaired_citations == []
+
+    def test_verify_claim_repairs_missing_citation_conservatively(self) -> None:
+        claim = AtomicClaim(
+            text="Subjective character resists reduction.",
+            source="stance_support",
+            citations=[],
+        )
+        result = verify_claim(
+            claim,
+            chunk_text_by_id={
+                "chunk_0": "Nagel says subjective character resists reduction.",
+                "chunk_1": "Neural correlates are empirical findings.",
+            },
+        )
+
+        assert result.label == "ambiguous"
+        assert result.citations == ["chunk_0"]
+        assert result.repaired_citations == ["chunk_0"]
+
+    def test_verify_claim_labels_unknown_citation_unsupported(self) -> None:
+        claim = AtomicClaim(
+            text="A claim with no lexical support.",
+            source="stance_support",
+            citations=["chunk_99"],
+        )
+        result = verify_claim(
+            claim,
+            chunk_text_by_id={"chunk_0": "Unrelated passage."},
+        )
+
+        assert result.label == "unsupported"
+        assert result.citations == []
+        assert "unknown chunk IDs" in result.note
+
+    def test_verify_claims_indexes_prompt_and_stable_chunk_ids(self) -> None:
+        claims = [
+            AtomicClaim(
+                text="Subjective character resists reduction.",
+                source="stance_support",
+                citations=["nagel_bat:intro:chunk_0"],
+            )
+        ]
+        chunks = [
+            RetrievalResult(
+                text="Subjective character resists reduction.",
+                score=0.9,
+                metadata={
+                    "source": "nagel_bat",
+                    "source_chunk_id": "nagel_bat:intro:chunk_0",
+                },
+            )
+        ]
+
+        results = verify_claims(claims, chunks)
+
+        assert results[0].label == "ambiguous"
+        assert results[0].citations == ["nagel_bat:intro:chunk_0"]
 
 
 # --- Prompt tests -------------------------------------------------------
