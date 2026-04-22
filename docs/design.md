@@ -121,10 +121,14 @@ These live in `phil_mind_rag/agents/schema.py`.
 
 - Shared corpus across all agents (existing ChromaDB index)
 - Shared broad retrieval: top-k chunks returned once per query
-- All three stance agents receive the same chunk set
-- Each agent selects and emphasises different chunks in its memo via citation
+- All three stance agents receive the same chunk set, but each stance now
+  applies a stance-specific evidence-pack reranking before prompt construction
+- Reranking uses explicit term sets for materialist, idealist, and dualist
+  emphasis while preserving original `chunk_N` citation IDs for grounding
+- Each generated `StanceMemo` records `evidence_chunk_ids`, the ordered chunk IDs
+  shown to that stance agent
 
-**Deferred:** stance-biased reranking, separate source packs per stance.
+**Deferred:** separate source packs per stance and additional vector-retrieval calls.
 
 ---
 

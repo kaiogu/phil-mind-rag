@@ -14,6 +14,7 @@ from phil_mind_rag.agents.crewai import (
     build_crewai_artifacts,
     run_crewai_analysis,
 )
+from phil_mind_rag.agents.evidence import build_evidence_pack
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.plain import orchestration_profiles, run_plain_analysis
@@ -161,6 +162,24 @@ class TestPrompts:
         assert "chunk_0" in user
         assert "chunk_1" in user
 
+    def test_stance_prompt_preserves_explicit_chunk_ids(self) -> None:
+        chunks = [
+            RetrievalResult(
+                text="Consciousness has a subjective character.",
+                score=0.9,
+                metadata={
+                    "source": "nagel.pdf",
+                    "section": "Introduction",
+                    "chunk_id": "chunk_7",
+                },
+            )
+        ]
+
+        _, user = stance_prompt("idealist", "Foreground idealism.", "Q?", chunks)
+
+        assert "[chunk_7]" in user
+        assert "[chunk_0]" not in user
+
     def test_stance_prompt_empty_chunks(self) -> None:
         system, user = stance_prompt("dualist", "Focus on dualism.", "Q?", [])
         assert isinstance(system, str)
@@ -189,6 +208,51 @@ class TestPrompts:
 # --- Stance node tests --------------------------------------------------
 
 
+class TestEvidencePacks:
+    def test_materialist_evidence_pack_prioritizes_physical_terms(
+        self,
+    ) -> None:
+        chunks = [
+            RetrievalResult(
+                text="Consciousness cannot be reduced to physical processes.",
+                score=0.9,
+                metadata={"source": "chalmers.pdf", "section": "Hard Problem"},
+            ),
+            RetrievalResult(
+                text="The brain and neural correlates explain conscious report.",
+                score=0.8,
+                metadata={"source": "neuroscience.pdf", "section": "Brain"},
+            ),
+        ]
+
+        pack = build_evidence_pack("materialist", chunks)
+
+        assert pack.chunk_ids == ["chunk_1", "chunk_0"]
+        assert pack.chunks[0].metadata["chunk_id"] == "chunk_1"
+        assert pack.query_terms
+
+    def test_idealist_evidence_pack_prioritizes_subjective_terms(
+        self,
+    ) -> None:
+        chunks = [
+            RetrievalResult(
+                text="The brain has neural correlates.",
+                score=0.9,
+                metadata={"source": "neuroscience.pdf", "section": "Brain"},
+            ),
+            RetrievalResult(
+                text="Subjective first-person experience has phenomenal character.",
+                score=0.8,
+                metadata={"source": "nagel.pdf", "section": "Subjectivity"},
+            ),
+        ]
+
+        pack = build_evidence_pack("idealist", chunks)
+
+        assert pack.chunk_ids == ["chunk_1", "chunk_0"]
+        assert pack.chunks[0].metadata["chunk_id"] == "chunk_1"
+
+
 class TestStanceNodes:
     def _state(self, sample_chunks: list[RetrievalResult]) -> AgentState:
         return AgentState(
@@ -213,6 +277,7 @@ class TestStanceNodes:
             result = run_materialist(self._state(sample_chunks), client, "gpt-4o-mini")
         assert "materialist_memo" in result
         assert result["materialist_memo"].stance == "materialist"
+        assert result["materialist_memo"].evidence_chunk_ids == ["chunk_0", "chunk_1"]
 
     def test_run_idealist_returns_memo(
         self, sample_chunks: list[RetrievalResult], stub_memo: StanceMemo
@@ -225,6 +290,7 @@ class TestStanceNodes:
         with _patch:
             result = run_idealist(self._state(sample_chunks), client, "gpt-4o-mini")
         assert result["idealist_memo"].stance == "idealist"
+        assert result["idealist_memo"].evidence_chunk_ids == ["chunk_1", "chunk_0"]
 
     def test_run_dualist_returns_memo(
         self, sample_chunks: list[RetrievalResult], stub_memo: StanceMemo
@@ -237,6 +303,7 @@ class TestStanceNodes:
         with _patch:
             result = run_dualist(self._state(sample_chunks), client, "gpt-4o-mini")
         assert result["dualist_memo"].stance == "dualist"
+        assert result["dualist_memo"].evidence_chunk_ids == ["chunk_1", "chunk_0"]
 
 
 # --- Grounding node tests -----------------------------------------------
