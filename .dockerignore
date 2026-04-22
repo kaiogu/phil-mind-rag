@@ -1,0 +1,34 @@
+# VCS and local tooling
+.git
+.github
+.codex
+.idea
+.vscode
+
+# Python/runtime caches
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Local corpus and eval artifacts
+data/chroma/
+data/raw/
+data/processed/
+data/registry.json
+eval_runs/
+
+# Misc local files
+CLAUDE.local.md
+*.swp

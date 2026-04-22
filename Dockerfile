@@ -23,4 +23,4 @@ COPY main.py ./
 # Gradio listens on 0.0.0.0:7860 by default; HF Spaces expects port 7860
 EXPOSE 7860
 
-CMD ["uv", "run", "python", "main.py"]
+CMD ["uv", "run", "--frozen", "--no-dev", "python", "main.py"]
