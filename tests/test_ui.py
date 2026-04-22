@@ -19,8 +19,7 @@ from phil_mind_rag.agents.schema import (
     SynthesisReport,
     VerifiedClaim,
 )
-from phil_mind_rag.app.ui import (
-    create_app,
+from phil_mind_rag.app.callbacks import (
     handle_acquire_sources,
     handle_analysis,
     handle_discover_sources,
@@ -28,6 +27,7 @@ from phil_mind_rag.app.ui import (
     handle_refresh,
     handle_upload,
 )
+from phil_mind_rag.app.ui import create_app
 from phil_mind_rag.ingestion.chunker import Chunk
 from phil_mind_rag.ingestion.metadata_extractor import ExtractedMetadata
 from phil_mind_rag.ingestion.registry import DocumentRecord
@@ -175,9 +175,9 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
     )
 
     with (
-        patch("phil_mind_rag.app.ui._get_pipeline"),
-        patch("phil_mind_rag.app.ui._get_settings"),
-        patch("phil_mind_rag.app.ui.run_analysis", return_value=result),
+        patch("phil_mind_rag.app.callbacks.get_pipeline"),
+        patch("phil_mind_rag.app.callbacks.get_settings"),
+        patch("phil_mind_rag.app.callbacks.run_analysis", return_value=result),
     ):
         baseline, materialist, idealist, dualist, grounding, synthesis, sources = (
             handle_analysis("What is consciousness?")
@@ -212,10 +212,10 @@ def test_handle_analysis_rejects_blank_question() -> None:
 
 def test_handle_analysis_returns_input_error() -> None:
     with (
-        patch("phil_mind_rag.app.ui._get_pipeline"),
-        patch("phil_mind_rag.app.ui._get_settings"),
+        patch("phil_mind_rag.app.callbacks.get_pipeline"),
+        patch("phil_mind_rag.app.callbacks.get_settings"),
         patch(
-            "phil_mind_rag.app.ui.run_analysis",
+            "phil_mind_rag.app.callbacks.run_analysis",
             side_effect=ValueError("bad question"),
         ),
     ):
@@ -244,7 +244,7 @@ def test_handle_extract_metadata_returns_title_and_author() -> None:
         method="pdf_metadata",
     )
 
-    with patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline):
+    with patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline):
         result = handle_extract_metadata("paper.pdf")
 
     assert result == ("The Conscious Mind", "David Chalmers")
@@ -258,7 +258,7 @@ def test_handle_extract_metadata_swallows_errors() -> None:
 
     pipeline.extract_metadata = _raise
 
-    with patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline):
+    with patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline):
         assert handle_extract_metadata("paper.pdf") == ("", "")
 
 
@@ -277,7 +277,7 @@ def test_handle_refresh_maps_registry_records() -> None:
     pipeline = MagicMock()
     pipeline.list_documents = lambda: [record]
 
-    with patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline):
+    with patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline):
         result = handle_refresh()
 
     assert result == [
@@ -327,7 +327,7 @@ def test_handle_upload_yields_progress_and_success(tmp_path) -> None:
     pipeline.store = _store
     pipeline.register = _register
 
-    with patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline):
+    with patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline):
         updates = list(handle_upload(str(pdf), "Custom Title", "Custom Author"))
 
     assert updates == [
@@ -348,7 +348,7 @@ def test_handle_upload_stops_when_no_chunks(tmp_path) -> None:
     pipeline.parse = lambda path: {"path": path}
     pipeline.chunk = lambda document: []
 
-    with patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline):
+    with patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline):
         updates = list(handle_upload(str(pdf), None, None))
 
     assert updates == [
@@ -369,7 +369,7 @@ def test_handle_upload_returns_validation_error(tmp_path) -> None:
 
     pipeline.parse = _raise
 
-    with patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline):
+    with patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline):
         updates = list(handle_upload(str(pdf), None, None))
 
     assert updates == [
@@ -393,14 +393,14 @@ def test_handle_discover_sources_formats_report_and_caches_state() -> None:
     settings.openai_web_search_model = "gpt-5-mini"
 
     with (
-        patch("phil_mind_rag.app.ui._get_settings", return_value=settings),
+        patch("phil_mind_rag.app.callbacks.get_settings", return_value=settings),
         patch(
-            "phil_mind_rag.app.ui.default_source_providers",
+            "phil_mind_rag.app.callbacks.default_source_providers",
             return_value=[_OpenAIWebSearchProvider()],
         ),
-        patch("phil_mind_rag.app.ui.OpenAI"),
+        patch("phil_mind_rag.app.callbacks.OpenAI"),
         patch(
-            "phil_mind_rag.app.ui.discover_sources",
+            "phil_mind_rag.app.callbacks.discover_sources",
             return_value=_source_report(),
         ),
     ):
@@ -423,11 +423,14 @@ def test_handle_discover_sources_shows_web_search_note_when_unconfigured() -> No
     settings.openai_web_search_model = "gpt-5-mini"
 
     with (
-        patch("phil_mind_rag.app.ui._get_settings", return_value=settings),
-        patch("phil_mind_rag.app.ui.default_source_providers", return_value=[object()]),
-        patch("phil_mind_rag.app.ui.OpenAI"),
+        patch("phil_mind_rag.app.callbacks.get_settings", return_value=settings),
         patch(
-            "phil_mind_rag.app.ui.discover_sources",
+            "phil_mind_rag.app.callbacks.default_source_providers",
+            return_value=[object()],
+        ),
+        patch("phil_mind_rag.app.callbacks.OpenAI"),
+        patch(
+            "phil_mind_rag.app.callbacks.discover_sources",
             return_value=_source_report(),
         ),
     ):
@@ -470,10 +473,10 @@ def test_handle_acquire_sources_formats_results(tmp_path: Path) -> None:
     ]
 
     with (
-        patch("phil_mind_rag.app.ui._get_settings", return_value=settings),
-        patch("phil_mind_rag.app.ui._get_pipeline", return_value=pipeline),
+        patch("phil_mind_rag.app.callbacks.get_settings", return_value=settings),
+        patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline),
         patch(
-            "phil_mind_rag.app.ui.download_sources",
+            "phil_mind_rag.app.callbacks.download_sources",
             return_value=download_results,
         ),
     ):
