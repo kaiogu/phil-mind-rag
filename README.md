@@ -17,6 +17,8 @@ This README explains what the system does, why each piece works the way it does,
 For orientation and study:
 
 - [`docs/architecture.md`](docs/architecture.md): implemented system graph.
+- [`docs/corpus.md`](docs/corpus.md): curated source metadata and local data
+  rebuild notes.
 - [`docs/framework-notes.md`](docs/framework-notes.md): what each framework does
   in this repo.
 - [`docs/learning-guide.md`](docs/learning-guide.md): file-by-file reading path.
@@ -221,11 +223,13 @@ These are the files where the real decisions live. Read them in this order:
 - [ ] Live end-to-end validation with real corpus and paid model calls
 
 ### v3 — corpus pipeline
+- [x] Canonical starter corpus metadata — `data/corpus_sources.json`
 - [x] Source discovery helpers with OpenAlex, Semantic Scholar, and OpenAI web search — KGU-104
 - [x] Source download and optional auto-ingestion helpers — KGU-105
 - [x] DOI / Unpaywall / arXiv / Semantic Scholar fallback acquisition order
 - [x] Acquisition status and duplicate-download tracking
 - [x] Eval-generation agent (LLM-authored, corpus-pinned) — KGU-106
+- [ ] Cross-paper and adversarial eval slices over the curated corpus
 
 ### v4 — framework comparison and deeper evals
 - [x] CrewAI reimplementation for framework comparison — KGU-114
@@ -256,6 +260,10 @@ uv run python scripts/run_eval.py --report-dir eval_runs
 
 # Offline deterministic multi-agent eval report
 uv run python scripts/run_agent_eval.py --report-dir eval_runs
+
+# Local corpus state
+# Committed metadata: data/corpus_sources.json
+# Local ignored artifacts: data/raw, data/processed, data/chroma, data/registry.json
 
 # Live paid-provider smoke test for source discovery
 uv run pytest --verbose -m paid_api tests/test_paid_api_smoke.py
