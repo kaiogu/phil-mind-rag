@@ -119,7 +119,7 @@ def test_suggest_sources_returns_structured_report() -> None:
     client = MagicMock()
 
     with patch(
-        "phil_mind_rag.agents.paper_tools.generate_structured",
+        "phil_mind_rag.corpus.discovery.generate_structured",
         return_value=report,
     ) as mocked:
         result = suggest_sources(
@@ -174,7 +174,7 @@ def test_suggest_sources_validates_inputs(
 
 def test_suggest_papers_wraps_generic_source_suggestions() -> None:
     with patch(
-        "phil_mind_rag.agents.paper_tools.suggest_sources",
+        "phil_mind_rag.corpus.discovery.suggest_sources",
         return_value=SourceDiscoveryReport(
             field="philosophy of mind",
             question="Q?",
@@ -225,7 +225,7 @@ def test_discover_sources_merges_and_deduplicates_provider_results() -> None:
     web_only = _source_candidate("Web Only", source_type="blog")
 
     with patch(
-        "phil_mind_rag.agents.paper_tools.suggest_sources",
+        "phil_mind_rag.corpus.discovery.suggest_sources",
         return_value=_source_report(),
     ) as mocked:
         result = discover_sources(
@@ -266,7 +266,7 @@ def test_discover_sources_skips_failed_provider_when_others_return_results() -> 
             return [_source_candidate("Working Source")]
 
     with patch(
-        "phil_mind_rag.agents.paper_tools.suggest_sources",
+        "phil_mind_rag.corpus.discovery.suggest_sources",
         return_value=_source_report(),
     ) as mocked:
         result = discover_sources(
