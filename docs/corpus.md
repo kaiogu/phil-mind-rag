@@ -148,3 +148,16 @@ runtime index, not canonical corpus metadata.
 Future cross-paper eval rows should use source IDs from
 `data/corpus_sources.json` in `expected_sources`. Once source files are ingested,
 retrieval eval rows should also pin `expected_chunk_ids`.
+
+The committed `data/eval_set.json` now contains:
+
+- the original Nagel smoke-eval rows
+- cross-paper comparison rows
+- source-attribution rows
+- stance-divergence rows
+- grounding-fidelity traps
+- unanswerable/adversarial rows
+
+Rows prefixed with `corpus_` are manually authored starter rows. They use the
+chunk-pinned schema but leave `expected_chunk_ids` empty until the corresponding
+sources are lawfully ingested and stable chunk IDs can be recorded.

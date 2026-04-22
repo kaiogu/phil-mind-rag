@@ -106,5 +106,109 @@
     "difficulty": "hard",
     "expected_sources": ["nagel_bat"],
     "expected_chunk_ids": []
+  },
+  {
+    "id": "corpus_001",
+    "question": "How do Nagel and Chalmers differ in framing the explanatory gap for consciousness?",
+    "ground_truth": "A good answer should compare Nagel's focus on the subjective character of experience with Chalmers's distinction between easy problems and the hard problem. It should say that both reject straightforward reductive explanation, while Chalmers develops a more explicit nonreductive explanatory program.",
+    "type": "cross_paper_comparison",
+    "difficulty": "hard",
+    "expected_sources": ["nagel_bat", "chalmers_facing_up"],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored from curated corpus metadata; chunk IDs must be pinned after Chalmers is ingested."
+  },
+  {
+    "id": "corpus_002",
+    "question": "Compare Jackson's knowledge argument with Dennett's critique of qualia.",
+    "ground_truth": "A good answer should identify Jackson's Mary-style argument as an anti-physicalist challenge based on knowing all physical facts while lacking phenomenal knowledge, then contrast Dennett as challenging the coherence or usefulness of qualia as traditionally conceived.",
+    "type": "cross_paper_comparison",
+    "difficulty": "hard",
+    "expected_sources": ["jackson_epiphenomenal_qualia", "dennett_quining_qualia"],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored source-pair eval row; requires lawful ingestion of both sources before chunk IDs can be pinned."
+  },
+  {
+    "id": "corpus_003",
+    "question": "Which source should be cited for the claim that the hard problem separates consciousness from more tractable cognitive problems?",
+    "ground_truth": "The expected attribution is Chalmers's Facing Up to the Problem of Consciousness, because that paper explicitly distinguishes the hard problem from easier functional or cognitive problems.",
+    "type": "source_attribution",
+    "difficulty": "medium",
+    "expected_sources": ["chalmers_facing_up"],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored attribution row; pin to Chalmers chunks after ingestion."
+  },
+  {
+    "id": "corpus_004",
+    "question": "Which source should be cited for the Chinese room argument against strong AI?",
+    "ground_truth": "The expected attribution is Searle's Minds, Brains, and Programs. A grounded answer should cite Searle rather than Nagel, Chalmers, or Putnam for the Chinese room argument.",
+    "type": "source_attribution",
+    "difficulty": "medium",
+    "expected_sources": ["searle_minds_brains_programs"],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored attribution row; source may remain metadata-only until lawful access is available."
+  },
+  {
+    "id": "corpus_005",
+    "question": "How should materialist, dualist, and functionalist stances use Churchland, Chalmers, and Putnam differently?",
+    "ground_truth": "A good answer should assign Churchland to eliminative materialist pressure on folk psychology, Chalmers to nonreductive or property-dualist pressure on physicalist explanation, and Putnam to functionalist or multiple-realizability pressure against simple identity theory.",
+    "type": "stance_divergence",
+    "difficulty": "hard",
+    "expected_sources": [
+      "churchland_eliminative_materialism",
+      "chalmers_facing_up",
+      "putnam_psychological_predicates"
+    ],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored stance-divergence row for source balancing; chunk IDs pending ingestion."
+  },
+  {
+    "id": "corpus_006",
+    "question": "How do Tye's representationalism and Block's anti-functionalist qualia cases pull in different directions?",
+    "ground_truth": "A good answer should explain that Tye treats phenomenal character in representational or intentionalist terms, while Block's absent/inverted qualia cases challenge functionalist accounts that identify mentality with functional organization alone.",
+    "type": "stance_divergence",
+    "difficulty": "hard",
+    "expected_sources": ["tye_ten_problems", "block_troubles_functionalism"],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored stance-divergence row; requires lawful source access before chunk pinning."
+  },
+  {
+    "id": "corpus_007",
+    "question": "What evidence supports the claim that Nagel denies any possible future theory of consciousness?",
+    "ground_truth": "This is a grounding-fidelity trap. Nagel argues that current forms of reduction do not explain subjective experience, but he does not simply deny that any future theoretical form could help. A grounded answer should flag the stronger claim as unsupported or overstated.",
+    "type": "grounding_fidelity",
+    "difficulty": "hard",
+    "expected_sources": ["nagel_bat"],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored adversarial grounding row based on the existing Nagel smoke corpus."
+  },
+  {
+    "id": "corpus_008",
+    "question": "Does the corpus show that Crick and Koch solved the hard problem of consciousness?",
+    "ground_truth": "A grounded answer should say no. Crick and Koch are included as a neuroscience anchor for visual awareness and neural-correlate style research, but the curated metadata does not establish that they solved the hard problem.",
+    "type": "grounding_fidelity",
+    "difficulty": "hard",
+    "expected_sources": ["crick_koch_neurobiological_theory", "chalmers_facing_up"],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored grounding-fidelity row to test overclaim detection."
+  },
+  {
+    "id": "corpus_009",
+    "question": "What does the curated corpus say about panpsychism as a solution to consciousness?",
+    "ground_truth": "The current curated starter corpus does not include a dedicated panpsychist source. A good answer should acknowledge that missing evidence rather than inventing a panpsychist position from unrelated sources.",
+    "type": "unanswerable",
+    "difficulty": "medium",
+    "expected_sources": [],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored unanswerable row; expected behavior is explicit uncertainty/source-gap reporting."
+  },
+  {
+    "id": "corpus_010",
+    "question": "According to the corpus, what did Patricia Churchland argue in Neurophilosophy about qualia?",
+    "ground_truth": "The curated starter corpus does not include Patricia Churchland's Neurophilosophy. A good answer should not answer from Paul Churchland's eliminative materialism paper as if it were that source.",
+    "type": "unanswerable",
+    "difficulty": "medium",
+    "expected_sources": [],
+    "expected_chunk_ids": [],
+    "review_notes": "Manually authored adversarial unanswerable row to catch author/title confusion."
   }
 ]
