@@ -14,6 +14,8 @@ A learning and portfolio project building a RAG system that evolves into a multi
 
 This README explains what the system does, why each piece works the way it does, what you should actually read and understand in the code, and where the project is going.
 
+For a code-first study path, see [`docs/learning-guide.md`](docs/learning-guide.md).
+
 ---
 
 ## What it does (current)
