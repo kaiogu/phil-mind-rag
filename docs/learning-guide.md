@@ -1,125 +1,108 @@
 # Learning Guide
 
-This repo is both a portfolio project and a learning project. Read it as a
-small RAG system that grew a multi-agent analysis layer, not as a finished
+This repo is both a portfolio project and a learning project. Read it as a RAG
+system that grew an auditable multi-agent analysis layer, not as a finished
 research product.
 
-The current north star is:
+North star:
 
 > Auditable philosophy-of-mind argument analysis over a curated corpus.
 
-That means the system should retrieve evidence, generate stance-specific
-arguments, audit claims against sources, and expose disagreement clearly.
+Start with the maps:
 
-## High-Level Graph
-
-```mermaid
-flowchart TD
-    Main["main.py"] --> UI["app/ui.py<br/>Gradio layout and callbacks"]
-    UI --> Pipeline["pipeline.py<br/>single RAG pipeline"]
-    UI --> AgentGraph["agents/graph.py<br/>LangGraph multi-agent run"]
-    UI --> Plain["agents/plain.py<br/>plain Python baseline"]
-    UI --> CrewAI["agents/crewai.py<br/>optional CrewAI comparison"]
-    UI --> SourceTools["agents/source_search.py + paper_tools.py<br/>experimental source discovery/acquisition"]
-
-    Pipeline --> Security["security.py<br/>query and file validation"]
-    Pipeline --> Parser["ingestion/parser.py<br/>PDF parsing"]
-    Parser --> Chunker["ingestion/chunker.py<br/>section-aware chunks"]
-    Chunker --> Store["retrieval/store.py<br/>Chroma vector store"]
-    Store --> Retriever["retrieval/retriever.py<br/>query embedding and top-k retrieval"]
-    Retriever --> Prompt["generation/prompts.py<br/>RAG prompt contract"]
-    Prompt --> LLM["generation/llm.py<br/>OpenAI chat wrapper"]
-
-    AgentGraph --> State["agents/state.py<br/>LangGraph state shape"]
-    AgentGraph --> Stance["agents/stance.py<br/>materialist, idealist, dualist memos"]
-    Stance --> Schemas["agents/schema.py<br/>Pydantic output contracts"]
-    AgentGraph --> Grounding["agents/grounding.py<br/>adjudication and citation audit"]
-    Grounding --> Schemas
-
-    Pipeline --> RagasEval["eval/evaluator.py<br/>RAGAS wrapper"]
-    AgentGraph --> AgentEval["eval/agent_evaluator.py<br/>deterministic multi-agent checks"]
-    Retriever --> EvalGen["agents/eval_generation.py<br/>chunk-pinned eval question generation"]
-```
+- `docs/architecture.md`: what exists and how modules connect.
+- `docs/framework-notes.md`: what each framework contributes in this repo.
+- `docs/design.md`: the agent design brief and product principles.
 
 ## Mental Model
 
-The core product path is:
+The core RAG path is:
 
-1. Parse a PDF into document sections.
-2. Chunk the sections without crossing section boundaries.
+1. Validate and parse a PDF.
+2. Split it into section-aware chunks.
 3. Embed each chunk.
-4. Store embeddings and metadata in Chroma.
+4. Store chunks, metadata, IDs, and embeddings in Chroma.
 5. Embed a user question.
-6. Retrieve the nearest chunks.
-7. Ask the LLM to answer only from those chunks.
+6. Retrieve nearest chunks.
+7. Ask the LLM to answer from those chunks.
 
-The multi-agent path reuses the same retrieved chunks:
+The multi-agent path adds:
 
-1. Retrieve chunks for the question.
-2. Send those chunks to materialist, idealist, and dualist stance agents.
-3. Each stance agent returns a structured `StanceMemo`.
-4. A grounding agent reads all memos and retrieved chunks.
-5. The grounding agent returns a structured `SynthesisReport`.
-6. Deterministic checks flag missing or invalid chunk citations.
+1. Retrieve base chunks for the question.
+2. Retrieve stance-specific chunks using deterministic query expansion.
+3. Build evidence packs with stable global `chunk_N` IDs.
+4. Generate materialist, idealist, and dualist structured memos.
+5. Ground and synthesize those memos against retrieved evidence.
+6. Extract and verify claims.
+7. Project the result into an argument map.
 
-The important limitation: the current stance agents mostly differ by prompt.
-The roadmap work should make them differ behaviorally through stance-specific
-retrieval, claim verification, and argument maps.
+The UI path is intentionally separate:
 
-## Reading Order
+1. `app/ui.py` lays out Gradio components.
+2. `app/callbacks.py` handles button actions.
+3. `app/state.py` creates settings and the pipeline lazily.
+4. `app/formatting.py` turns structured outputs into Markdown/table views.
+
+## Reading Path
 
 ### 1. Project Story
 
-Read `README.md` first.
+Read:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/framework-notes.md`
+- `docs/design.md`
 
 Learn:
 
-- what the repo claims to do
-- what is implemented now
-- what is experimental or planned
-- how to run the app and checks
-
-Then read `docs/design.md`.
-
-Learn:
-
-- the stance-agent design
-- the anti-prompt-theater principle
-- the intended LangGraph flow
-- the current evaluation philosophy
+- what is implemented
+- what is experimental
+- what is only planned
+- why the project is more than a generic PDF chatbot
 
 ### 2. Configuration
 
-Read `phil_mind_rag/config.py`.
+Read:
+
+- `phil_mind_rag/config.py`
+- `tests/conftest.py`
 
 Learn:
 
-- how `pydantic-settings` maps environment variables into typed settings
-- where model names, chunk sizes, storage paths, and limits come from
-- why most modules should receive settings instead of reading env vars directly
+- how environment variables become typed settings
+- where model names, paths, chunk sizes, and limits come from
+- how tests avoid depending on your real `.env`
 
-Useful test:
+Focused check:
 
-- `tests/conftest.py` for test settings and fixtures
+```bash
+uv run ty check
+```
 
 ### 3. Pipeline Wiring
 
-Read `phil_mind_rag/pipeline.py`.
+Read:
+
+- `phil_mind_rag/pipeline.py`
+- `tests/test_pipeline.py`
 
 Learn:
 
-- how parsing, chunking, embedding, storage, retrieval, and generation connect
-- why this file is the main integration point
-- how `query_with_sources()` differs from `retrieve()`
-- how `answer_from_contexts()` lets evals and agents reuse retrieved chunks
+- why `RAGPipeline` is the integration point
+- how parse/chunk/embed/store/retrieve/generate connect
+- why `retrieve()` and `answer_from_contexts()` exist separately
+- how evals and agents reuse the same pipeline pieces
 
-Useful test:
+Focused check:
 
-- `tests/test_pipeline.py`
+```bash
+uv run pytest tests/test_pipeline.py -v
+```
 
 ### 4. Ingestion
 
-Read these together:
+Read:
 
 - `phil_mind_rag/ingestion/parser.py`
 - `phil_mind_rag/ingestion/chunker.py`
@@ -128,87 +111,98 @@ Read these together:
 
 Learn:
 
-- how PDFs become structured text
-- why chunks preserve section boundaries
-- how overlap protects against losing context at chunk edges
-- how document metadata and local registry state are tracked
+- how PDFs become parsed sections
+- how section-aware chunks preserve local meaning
+- why overlap protects context at chunk boundaries
+- how the local document registry tracks ingested files
 
-Useful tests:
+Focused checks:
 
-- `tests/test_chunker.py`
-- `tests/test_metadata_extractor.py`
-- `tests/test_registry.py`
+```bash
+uv run pytest tests/test_chunker.py tests/test_metadata_extractor.py tests/test_registry.py -v
+```
 
 ### 5. Retrieval
 
-Read these together:
+Read:
 
 - `phil_mind_rag/retrieval/store.py`
 - `phil_mind_rag/retrieval/retriever.py`
 
 Learn:
 
-- what the vector-store interface abstracts
-- how Chroma stores chunk text, metadata, and embeddings
+- what the vector-store abstraction hides
+- how Chroma stores chunks and embeddings
 - how query embeddings become nearest-neighbor results
-- how cosine distance is converted into a similarity-like score
+- how retrieval output is shaped for prompts, agents, UI, and evals
 
-Useful test:
+Focused checks:
 
-- `tests/test_retriever.py`
+```bash
+uv run pytest tests/test_store.py tests/test_retriever.py -v
+```
 
 ### 6. Generation
 
-Read these together:
+Read:
 
 - `phil_mind_rag/generation/prompts.py`
 - `phil_mind_rag/generation/llm.py`
+- `tests/test_prompts.py`
 
 Learn:
 
-- the prompt contract that makes the answer grounded
-- how retrieved chunks are formatted for the LLM
-- where the OpenAI chat call is wrapped
-- what should be faked in tests instead of calling the network
+- the grounded-answer prompt contract
+- how chunks are injected into prompts
+- where OpenAI chat calls are wrapped
+- what tests fake instead of calling the network
 
-Useful test:
+Focused check:
 
-- `tests/test_prompts.py`
+```bash
+uv run pytest tests/test_prompts.py -v
+```
 
 ### 7. Security Boundaries
 
-Read `phil_mind_rag/security.py`.
+Read:
+
+- `phil_mind_rag/security.py`
+- `tests/test_security.py`
 
 Learn:
 
-- how user queries are checked for simple prompt-injection patterns
-- how uploaded documents are validated by extension and size
-- why this is a basic demo boundary, not full document-security coverage
+- how query sanitization works
+- how uploaded document extension and size are checked
+- why this is a basic boundary, not a complete PDF/document security system
 
-Useful test:
+Focused check:
 
-- `tests/test_security.py`
+```bash
+uv run pytest tests/test_security.py -v
+```
 
 ### 8. Agent Contracts
 
-Read `phil_mind_rag/agents/schema.py`.
+Read:
 
-Learn:
-
-- why structured outputs matter for multi-agent systems
-- what a `StanceMemo` must contain
-- what a `SynthesisReport` must contain
-- how source citations are represented as chunk IDs
-
-Useful tests:
-
+- `phil_mind_rag/agents/schema.py`
 - `tests/test_agents.py`
 - `tests/test_agent_evaluator.py`
 
-### 9. Agent Behavior
+Learn:
 
-Read these together:
+- why structured outputs matter
+- what `StanceMemo`, `SynthesisReport`, `VerifiedClaim`, and `ArgumentMap`
+  represent
+- how chunk citations are represented
+- how deterministic evals inspect the agent outputs
 
+### 9. Agent Evidence And Behavior
+
+Read:
+
+- `phil_mind_rag/agents/evidence.py`
 - `phil_mind_rag/agents/prompts.py`
 - `phil_mind_rag/agents/stance.py`
 - `phil_mind_rag/agents/grounding.py`
@@ -216,14 +210,21 @@ Read these together:
 
 Learn:
 
-- how stance prompts are built
+- how stance-specific query expansion works
+- how evidence packs preserve stable global chunk IDs
+- how stance prompts differ
 - how structured output is requested from OpenAI
-- how the grounding agent merges LLM judgment with deterministic citation checks
-- what is real behavior now versus prompt-level differentiation
+- how grounding combines LLM judgment with deterministic citation checks
 
-### 10. Orchestration Frameworks
+Focused check:
 
-Read in this order:
+```bash
+uv run pytest tests/test_agents.py -v
+```
+
+### 10. Orchestration
+
+Read in order:
 
 1. `phil_mind_rag/agents/plain.py`
 2. `phil_mind_rag/agents/graph.py`
@@ -231,88 +232,137 @@ Read in this order:
 
 Learn:
 
-- how the same flow looks without a framework
-- how LangGraph models the flow as state passed through nodes
-- what CrewAI adds as a role/task abstraction
-- why optional framework support should be compared honestly
+- how the flow looks without a framework
+- how LangGraph turns it into explicit state-machine nodes and edges
+- why CrewAI is optional comparison code, not the primary app path
 
-Current flow:
+Current LangGraph flow:
 
 ```text
-question -> retrieve -> stance memos in parallel -> grounding -> report
+question -> retrieve evidence -> run stance memos -> grounding -> post-processing
 ```
 
-### 11. Evals
+Post-processing includes baseline answer generation, claim verification, and
+argument-map construction.
 
-Read these together:
+### 11. Claims And Argument Maps
+
+Read:
+
+- `phil_mind_rag/agents/claim_extraction.py`
+- `phil_mind_rag/agents/claim_verification.py`
+- `phil_mind_rag/agents/argument_map.py`
+- `tests/test_agent_report.py`
+- `tests/test_agents.py`
+
+Learn:
+
+- how structured memos and reports become atomic claims
+- why structurally valid citations are not automatically semantic proof
+- how conservative citation repair works
+- how the argument map is built deterministically from existing outputs
+
+### 12. Corpus Discovery And Acquisition
+
+Read:
+
+- `phil_mind_rag/agents/source_search.py`
+- `phil_mind_rag/corpus/discovery.py`
+- `phil_mind_rag/corpus/acquisition.py`
+- `phil_mind_rag/corpus/resolvers.py`
+- `phil_mind_rag/corpus/formatting.py`
+- `phil_mind_rag/agents/paper_tools.py`
+- `tests/test_paper_tools.py`
+
+Learn:
+
+- how providers return candidate sources
+- how candidates are ranked by an LLM into recommendations
+- how acquisition jobs track lifecycle state
+- how direct URL, Unpaywall, arXiv, and Semantic Scholar fallback resolution works
+- why `agents/paper_tools.py` remains as a compatibility facade
+
+Focused check:
+
+```bash
+uv run pytest tests/test_paper_tools.py -v
+```
+
+### 13. Evals
+
+Read:
 
 - `phil_mind_rag/eval/evaluator.py`
+- `phil_mind_rag/eval/retrieval_evaluator.py`
 - `phil_mind_rag/eval/agent_evaluator.py`
+- `phil_mind_rag/eval/reporting.py`
+- `phil_mind_rag/eval/agent_report.py`
 - `phil_mind_rag/agents/eval_generation.py`
 - `scripts/run_eval.py`
+- `scripts/run_agent_eval.py`
 - `data/eval_set.json`
 
 Learn:
 
-- what RAGAS evaluates
-- why deterministic evals are valuable
-- how valid citations differ from semantically supported citations
-- why future evals need expected chunk IDs
+- what RAGAS measures
+- why retrieval evals need expected source/chunk IDs
+- why deterministic evals are useful in CI
+- how generated eval questions should stay pinned to chunks
+- why semantic support needs a judge beyond citation validity
 
-Useful tests:
+Focused checks:
 
-- `tests/test_evaluator.py`
-- `tests/test_agent_evaluator.py`
-- `tests/test_eval_generation.py`
+```bash
+uv run pytest tests/test_evaluator.py tests/test_retrieval_evaluator.py tests/test_agent_evaluator.py tests/test_eval_generation.py -v
+uv run python scripts/run_agent_eval.py
+```
 
-### 12. UI Last
+### 14. UI Last
 
-Read `phil_mind_rag/app/ui.py` last.
+Read:
+
+- `phil_mind_rag/app/state.py`
+- `phil_mind_rag/app/formatting.py`
+- `phil_mind_rag/app/callbacks.py`
+- `phil_mind_rag/app/ui.py`
+- `tests/test_ui.py`
 
 Learn:
 
-- how Gradio wires buttons, tabs, and callback functions
-- how the app exposes ingestion, retrieval, source discovery, acquisition, and
-  multi-agent analysis
-- why this file is a cleanup target: it currently mixes layout, callbacks,
-  formatting, and lazy singleton construction
+- how Gradio events call into the system
+- how the UI exposes ingestion, discovery, acquisition, analysis, and library
+  state
+- why formatting belongs outside callbacks
+- why `ui.py` should stay mostly layout and event wiring
 
-Useful test:
+Focused check:
 
-- `tests/test_ui.py`
+```bash
+uv run pytest tests/test_ui.py -v
+```
 
-## Framework Map
+## Study Loop
 
-| Framework/tool | Where it appears | What to understand |
-|---|---|---|
-| OpenAI embeddings | `pipeline.py` | Chunks and queries are embedded into the same vector space. |
-| OpenAI chat | `generation/llm.py`, `agents/_llm.py` | Generation is wrapped so tests can use fakes. |
-| Chroma | `retrieval/store.py` | Local persistent vector store and nearest-neighbor search. |
-| Unstructured | `ingestion/parser.py` | PDF parsing into structured text. |
-| Pydantic | `agents/schema.py`, `config.py` | Settings and structured agent output contracts. |
-| LangGraph | `agents/graph.py`, `agents/state.py` | Explicit state-machine orchestration. |
-| CrewAI | `agents/crewai.py` | Optional role/task comparison path. |
-| RAGAS | `eval/evaluator.py` | LLM-judged RAG quality metrics. |
-| Gradio | `app/ui.py` | Browser UI for the pipeline. |
-| Ruff / ty / pytest | `pyproject.toml`, `tests/` | Quality gates and deterministic tests. |
+Use this loop for each layer:
 
-## How To Study It
-
-Use this loop:
-
-1. Read one module.
+1. Read the implementation file.
 2. Read the matching tests.
 3. Run the focused tests.
 4. Explain the module in your own words.
-5. Only then move to the next layer.
+5. Write down one question before moving on.
 
-Example:
+If you get lost, return to:
 
-```bash
-uv run pytest tests/test_chunker.py -v
-uv run pytest tests/test_retriever.py -v
-uv run pytest tests/test_agents.py -v
-```
+- `phil_mind_rag/pipeline.py` for core RAG.
+- `phil_mind_rag/agents/graph.py` for agent orchestration.
+- `docs/architecture.md` for the whole-system map.
 
-If you get lost, return to `pipeline.py`. It is the map of the core RAG
-system.
+## Best First Week
+
+1. Day 1: `config.py`, `pipeline.py`, and `docs/architecture.md`.
+2. Day 2: ingestion and retrieval.
+3. Day 3: generation and prompts.
+4. Day 4: agent schemas, stance prompts, and grounding.
+5. Day 5: LangGraph orchestration and plain Python comparison.
+6. Day 6: evals.
+7. Day 7: UI and corpus acquisition.

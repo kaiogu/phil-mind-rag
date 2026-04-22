@@ -21,7 +21,11 @@ The three stance agents must differ in at least one of:
 - critique responsibilities
 - memory and coordination topology
 
-**v1 differentiation:** same retrieval result set, different interpretation. Each agent sees the same top-k chunks but applies stance-specific instructions for which arguments to foreground. Stance-biased reranking and separate source packs are deferred to later issues.
+**Current differentiation:** agents share the base retrieval set, but each
+stance also receives stance-specific evidence from deterministic query
+expansion and evidence-pack reranking. They still share the same tool surface
+and memory model, so future work can deepen differentiation further through
+claim-level tools, critic loops, and uncertainty calibration.
 
 ---
 
@@ -160,12 +164,20 @@ Do not start with CrewAI. Start with architecture and evaluation criteria, imple
 
 The existing `RAGPipeline` (parse → chunk → embed → store) is the retrieval layer. It does not change for v1.
 
-Two new agents extend it for corpus building (tracked separately):
+Corpus-building helpers extend it experimentally:
 
-- **KGU-104** — web-scanning agent: discovers important papers by field via OpenAlex, Semantic Scholar, and OpenAI web search
-- **KGU-105** — download agent: resolves direct PDFs with direct URL → Unpaywall → arXiv → Semantic Scholar fallback order, fetches PDFs, avoids duplicate downloads, tracks acquisition status, and ingests via existing `RAGPipeline.ingest()`
+- Source providers discover candidate sources through OpenAlex, Semantic
+  Scholar, and optional OpenAI web search.
+- `corpus/discovery.py` ranks candidates into source recommendations.
+- `corpus/acquisition.py` turns recommendations into lifecycle-tracked
+  download jobs/results.
+- `corpus/resolvers.py` resolves direct PDFs with direct URL → Unpaywall →
+  arXiv → Semantic Scholar fallback order.
+- Successful downloads can ingest via existing `RAGPipeline.ingest()`.
 
-Both will be implemented as one agent with two tools rather than two independent agents.
+The acquisition workflow exists, but broad web acquisition is still
+experimental product surface. Curated corpus work remains the stronger default
+path for a useful portfolio artifact.
 
 ---
 
@@ -241,12 +253,12 @@ The process is the product for a portfolio artifact. Showing memo-writing and ad
 |---|---|
 | 3 stance agents + 1 grounding agent | Additional stances (panpsychist, illusionist, etc.) |
 | Parallel memo generation | Open-ended debate / turn-based dialogue |
-| Structured `StanceMemo` + `SynthesisReport` output | Stance-biased reranking |
+| Structured `StanceMemo` + `SynthesisReport` output | Free-form agent prose as the integration contract |
 | LangGraph orchestration + optional CrewAI comparison path | Production CrewAI migration |
-| Shared retrieval, same chunks per query | Separate source packs per stance |
+| Base retrieval + stance-specific evidence packs | Fully autonomous source acquisition during analysis |
 | Redesigned Gradio UI | Native app / PWA |
 | Grounding-fidelity eval | Full eval suite |
-| Existing corpus (Nagel + manual uploads) | Automated corpus building (KGU-104/105) |
+| Existing corpus (Nagel + manual uploads) | Fully automatic unsupervised corpus growth |
 
 MVP ships when: a user can ask a philosophy-of-mind question, receive three grounded stance memos and a synthesis report, and verify each claim against the source chunks in the UI.
 
@@ -254,7 +266,8 @@ MVP ships when: a user can ask a philosophy-of-mind question, receive three grou
 
 ## Open questions (post-v1)
 
-- Stance-biased reranking: how much does it improve position fidelity vs shared retrieval?
+- Stance-specific retrieval: how much does it improve position fidelity over
+  the original shared-retrieval baseline?
 - Cross-paper reasoning: can the system surface disagreements across authors, not just within one paper?
 - Memory: should stance agents accumulate positional memory across a session?
 - CrewAI comparison: which framework wins on inspectability and eval ergonomics?

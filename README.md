@@ -14,7 +14,12 @@ A learning and portfolio project building a RAG system that evolves into a multi
 
 This README explains what the system does, why each piece works the way it does, what you should actually read and understand in the code, and where the project is going.
 
-For a code-first study path, see [`docs/learning-guide.md`](docs/learning-guide.md).
+For orientation and study:
+
+- [`docs/architecture.md`](docs/architecture.md): implemented system graph.
+- [`docs/framework-notes.md`](docs/framework-notes.md): what each framework does
+  in this repo.
+- [`docs/learning-guide.md`](docs/learning-guide.md): file-by-file reading path.
 
 ---
 
@@ -26,7 +31,12 @@ Under the hood: the PDF is parsed into structural sections, split into overlappi
 
 ## Multi-agent layer
 
-Three stance agents — materialist, idealist, dualist — each read the same retrieved passages and write a structured memo arguing their philosophical position. A grounding agent reads all three memos, checks every claim against the source chunks, and produces a synthesis report. See [`docs/design.md`](docs/design.md) for the full architecture.
+Three stance agents — materialist, idealist, dualist — each receive a base
+evidence set plus stance-specific retrieved evidence and write a structured memo
+arguing their philosophical position. A grounding agent reads all three memos,
+checks claims against the source chunks, and produces a synthesis report. See
+[`docs/design.md`](docs/design.md) and
+[`docs/architecture.md`](docs/architecture.md) for the implemented architecture.
 
 ---
 
@@ -67,7 +77,7 @@ The key architectural decision: every layer is behind a plain Python interface (
 User question
       │
       ▼
-  Retrieval         shared top-k chunks
+  Retrieval         base + stance-specific chunks
       │
       ├──► Materialist agent  ──► StanceMemo
       ├──► Idealist agent     ──► StanceMemo    (parallel)
@@ -120,7 +130,12 @@ A plain Python orchestration baseline implements the same flow without LangGraph
 
 **Why multiple agents?** A single LLM asked "compare materialism and idealism" will produce a balanced summary that represents no position strongly. Stance agents are constrained to argue *for* their position as charitably as possible — they produce stronger, more specific arguments. The grounding agent then has real disagreement to adjudicate, not mush.
 
-**The anti-prompt-theater principle:** Three agents with different system prompts but identical retrieval, tools, and memory is mostly cosmetic. Real multi-agent differentiation means agents differ in what they retrieve, how they use tools, what schema they output, or how they critique. v1 uses the same retrieval but different output schemas and critique responsibilities — a minimal but real differentiation.
+**The anti-prompt-theater principle:** Three agents with different system
+prompts but identical retrieval, tools, and memory is mostly cosmetic. Real
+multi-agent differentiation means agents differ in what they retrieve, how they
+use tools, what schema they output, or how they critique. The current system
+uses a shared base retrieval set plus stance-specific query expansion and
+evidence-pack reranking.
 
 **LangGraph:** Models agent pipelines as directed graphs. Nodes are functions (agent calls, tool calls, conditional logic). Edges are transitions. State flows through the graph and is updated at each node. This makes the control flow explicit and inspectable rather than implicit in a chain of function calls.
 
@@ -159,7 +174,8 @@ These are the files where the real decisions live. Read them in this order:
 
 ### What not to read first
 
-- `phil_mind_rag/app/ui.py` — Gradio wiring, not where the interesting decisions are
+- `phil_mind_rag/app/ui.py` — Gradio layout/event wiring, not where the
+  interesting RAG decisions are
 - `phil_mind_rag/ingestion/parser.py` — thin wrapper over Unstructured, not much to learn here
 - `tests/` — useful for understanding expected behaviour, but not architectural
 
@@ -213,7 +229,7 @@ These are the files where the real decisions live. Read them in this order:
 
 ### v4 — framework comparison and deeper evals
 - [x] CrewAI reimplementation for framework comparison — KGU-114
-- [ ] Stance-biased reranking
+- [x] Stance-specific retrieval and evidence-pack reranking
 - [ ] Cross-model evaluation (generate with one family, judge with another)
 - [ ] Full eval suite across all three question types
 
