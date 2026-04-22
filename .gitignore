@@ -17,6 +17,7 @@ data/chroma/
 data/raw/
 data/processed/
 data/registry.json
+eval_runs/
 
 # Type-checker cache
 .mypy_cache/
