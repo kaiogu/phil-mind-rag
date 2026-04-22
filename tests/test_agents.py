@@ -9,6 +9,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from phil_mind_rag.agents.claim_extraction import (
+    claims_from_answer,
+    claims_from_stance_memo,
+    claims_from_synthesis_report,
+    extract_analysis_claims,
+)
 from phil_mind_rag.agents.crewai import (
     CrewAIUnavailableError,
     build_crewai_artifacts,
@@ -20,6 +26,7 @@ from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.plain import orchestration_profiles, run_plain_analysis
 from phil_mind_rag.agents.prompts import grounding_prompt, stance_prompt
 from phil_mind_rag.agents.schema import (
+    AtomicClaim,
     Claim,
     EvidenceClaim,
     StanceMemo,
@@ -140,6 +147,79 @@ class TestSchema:
             note="No evidence.",
         )
         assert claim.source_chunk_id is None
+
+    def test_atomic_claim_round_trip(self) -> None:
+        claim = AtomicClaim(
+            text="Nagel pressures reductionism.",
+            source="stance_support",
+            stance="dualist",
+            citations=["chunk_0"],
+            supported=None,
+            source_chunk_id=None,
+        )
+
+        assert AtomicClaim.model_validate_json(claim.model_dump_json()) == claim
+
+
+# --- Claim extraction tests ---------------------------------------------
+
+
+class TestClaimExtraction:
+    def test_claims_from_stance_memo_preserves_support_and_critiques(
+        self,
+        stub_memo: StanceMemo,
+    ) -> None:
+        claims = claims_from_stance_memo(stub_memo)
+
+        assert [claim.source for claim in claims] == [
+            "stance_support",
+            "rival_critique",
+        ]
+        assert all(claim.stance == "materialist" for claim in claims)
+        assert all(claim.citations == ["chunk_0"] for claim in claims)
+
+    def test_claims_from_synthesis_report_preserves_audit_status(
+        self,
+        stub_report: SynthesisReport,
+    ) -> None:
+        claims = claims_from_synthesis_report(stub_report)
+
+        supported = [claim for claim in claims if claim.supported is True]
+        unsupported = [claim for claim in claims if claim.supported is False]
+        assert supported[0].source == "synthesis_supported"
+        assert supported[0].source_chunk_id == "chunk_1"
+        assert unsupported[0].source == "synthesis_unsupported"
+
+    def test_claims_from_answer_splits_sentences(self) -> None:
+        claims = claims_from_answer(
+            "Consciousness is difficult. Nagel emphasizes subjectivity!",
+            citations=["chunk_0"],
+        )
+
+        assert [claim.text for claim in claims] == [
+            "Consciousness is difficult.",
+            "Nagel emphasizes subjectivity!",
+        ]
+        assert all(claim.source == "baseline_answer" for claim in claims)
+        assert all(claim.citations == ["chunk_0"] for claim in claims)
+
+    def test_extract_analysis_claims_deduplicates_identical_claims(
+        self,
+        stub_memo: StanceMemo,
+        stub_report: SynthesisReport,
+    ) -> None:
+        claims = extract_analysis_claims(
+            memos=[stub_memo, stub_memo],
+            report=stub_report,
+            baseline_answer="Baseline sentence.",
+        )
+
+        keys = [
+            (claim.text, claim.source, claim.stance, tuple(claim.citations))
+            for claim in claims
+        ]
+        assert len(keys) == len(set(keys))
+        assert any(claim.source == "baseline_answer" for claim in claims)
 
 
 # --- Prompt tests -------------------------------------------------------

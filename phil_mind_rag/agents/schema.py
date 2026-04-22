@@ -29,6 +29,15 @@ class Claim(BaseModel):
     note: str  # grounding agent's annotation
 
 
+class AtomicClaim(BaseModel):
+    text: str
+    source: str
+    citations: list[str]
+    stance: str | None = None
+    supported: bool | None = None
+    source_chunk_id: str | None = None
+
+
 class SynthesisReport(BaseModel):
     question: str
     areas_of_disagreement: list[str]
