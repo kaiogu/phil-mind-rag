@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.claim_extraction import (
     claims_from_answer,
     claims_from_stance_memo,
@@ -31,6 +32,7 @@ from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.plain import orchestration_profiles, run_plain_analysis
 from phil_mind_rag.agents.prompts import grounding_prompt, stance_prompt
 from phil_mind_rag.agents.schema import (
+    ArgumentMap,
     AtomicClaim,
     Claim,
     EvidenceClaim,
@@ -180,6 +182,17 @@ class TestSchema:
         )
 
         assert VerifiedClaim.model_validate_json(verified.model_dump_json()) == verified
+
+    def test_argument_map_round_trip(self) -> None:
+        argument_map = ArgumentMap(
+            question="What is consciousness?",
+            disagreement_axes=["reduction"],
+            stances=[],
+            decisive_chunks=["chunk_0"],
+            synthesis="The dispute remains open.",
+        )
+
+        assert ArgumentMap.model_validate_json(argument_map.model_dump_json())
 
 
 # --- Claim extraction tests ---------------------------------------------
@@ -336,6 +349,42 @@ class TestClaimVerification:
 
         assert results[0].label == "ambiguous"
         assert results[0].citations == ["nagel_bat:intro:chunk_0"]
+
+
+# --- Argument map tests --------------------------------------------------
+
+
+class TestArgumentMap:
+    def test_build_argument_map_projects_stance_and_grounding_outputs(
+        self,
+        stub_memo: StanceMemo,
+        stub_report: SynthesisReport,
+    ) -> None:
+        report = stub_report.model_copy(
+            update={
+                "supported_claims": [
+                    Claim(
+                        text="Neural correlates of consciousness exist.",
+                        stance="materialist",
+                        supported=True,
+                        citations=["chunk_0"],
+                        source_chunk_id="chunk_0",
+                        note="Directly grounded.",
+                    )
+                ]
+            }
+        )
+        memo = stub_memo.model_copy(update={"stance": "materialist"})
+
+        argument_map = build_argument_map(report=report, memos=[memo])
+
+        assert argument_map.question == report.question
+        assert argument_map.disagreement_axes == report.areas_of_disagreement
+        stance = argument_map.stances[0]
+        assert stance.stance == "materialist"
+        assert stance.strongest_argument == report.strongest_arguments["materialist"]
+        assert stance.supporting_claims[0].supported is True
+        assert stance.supporting_claims[0].note == "Directly grounded."
 
 
 # --- Prompt tests -------------------------------------------------------
@@ -649,6 +698,12 @@ class TestRunAnalysis:
             claim.claim.source == "synthesis_supported"
             for claim in result.verified_claims
         )
+        assert result.argument_map is not None
+        assert result.argument_map.stances[0].stance in {
+            "materialist",
+            "idealist",
+            "dualist",
+        }
 
     def test_retrieval_called_with_question(
         self,
@@ -742,6 +797,7 @@ class TestPlainOrchestration:
         assert result.dualist_memo.stance == "dualist"
         assert result.report == stub_report
         assert result.verified_claims
+        assert result.argument_map is not None
 
 
 class TestCrewAIOrchestration:
@@ -795,6 +851,7 @@ class TestCrewAIOrchestration:
         assert result.dualist_memo.stance == "dualist"
         assert result.report == stub_report
         assert result.verified_claims
+        assert result.argument_map is not None
         fake_crew.kickoff.assert_called_once()
 
 

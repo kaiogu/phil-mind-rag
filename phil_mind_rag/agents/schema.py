@@ -46,6 +46,29 @@ class VerifiedClaim(BaseModel):
     note: str
 
 
+class ArgumentMapClaim(BaseModel):
+    text: str
+    citations: list[str]
+    supported: bool | None = None
+    note: str | None = None
+
+
+class ArgumentMapStance(BaseModel):
+    stance: str
+    thesis: str
+    strongest_argument: str | None = None
+    supporting_claims: list[ArgumentMapClaim]
+    objections: list[ArgumentMapClaim]
+
+
+class ArgumentMap(BaseModel):
+    question: str
+    disagreement_axes: list[str]
+    stances: list[ArgumentMapStance]
+    decisive_chunks: list[str]
+    synthesis: str
+
+
 class SynthesisReport(BaseModel):
     question: str
     areas_of_disagreement: list[str]

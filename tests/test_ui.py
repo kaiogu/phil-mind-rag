@@ -7,6 +7,9 @@ from unittest.mock import MagicMock, patch
 
 from phil_mind_rag.agents.graph import AnalysisResult
 from phil_mind_rag.agents.schema import (
+    ArgumentMap,
+    ArgumentMapClaim,
+    ArgumentMapStance,
     AtomicClaim,
     Claim,
     EvidenceClaim,
@@ -147,6 +150,28 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
                 note="Citations are structurally valid.",
             )
         ],
+        argument_map=ArgumentMap(
+            question="What is consciousness?",
+            disagreement_axes=["reduction", "qualia"],
+            stances=[
+                ArgumentMapStance(
+                    stance="materialist",
+                    thesis="materialist thesis",
+                    strongest_argument="Neural evidence is strong.",
+                    supporting_claims=[
+                        ArgumentMapClaim(
+                            text="Materialism has empirical support.",
+                            citations=["chunk_0"],
+                            supported=True,
+                            note="Directly grounded.",
+                        )
+                    ],
+                    objections=[],
+                )
+            ],
+            decisive_chunks=["chunk_0"],
+            synthesis="The dispute remains open.",
+        ),
     )
 
     with (
@@ -167,6 +192,8 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
     assert "Claim Verification Audit" in grounding
     assert "Materialism has empirical support." in grounding
     assert "Decisive Evidence" in synthesis
+    assert "Argument Map" in synthesis
+    assert "Materialist Position" in synthesis
     assert "chunk_0" in sources
 
 

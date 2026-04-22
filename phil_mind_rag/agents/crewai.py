@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
+from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.graph import AnalysisResult, verify_analysis_claims
 from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport
 
@@ -67,6 +68,7 @@ def run_crewai_analysis(
         idealist_memo=ide,
         dualist_memo=dua,
     )
+    argument_map = build_argument_map(report=report, memos=[mat, ide, dua])
 
     return AnalysisResult(
         baseline_answer=baseline_answer,
@@ -76,6 +78,7 @@ def run_crewai_analysis(
         idealist_memo=ide,
         dualist_memo=dua,
         verified_claims=verified_claims,
+        argument_map=argument_map,
     )
 
 

@@ -25,6 +25,8 @@ from phil_mind_rag.pipeline import RAGPipeline
 
 if TYPE_CHECKING:
     from phil_mind_rag.agents.schema import (  # SynthesisReport used in format helpers
+        ArgumentMap,
+        ArgumentMapClaim,
         SourceDiscoveryReport,
         StanceMemo,
         SynthesisReport,
@@ -138,6 +140,43 @@ def _format_synthesis(report: SynthesisReport) -> str:
         lines.append(f"\n**Decisive Evidence:** {', '.join(report.decisive_chunks)}")
     lines.append(f"\n**Synthesis:**\n\n{report.synthesis}")
     return "\n".join(lines)
+
+
+def _format_argument_map(argument_map: ArgumentMap | None) -> str:
+    if argument_map is None:
+        return "_No argument map was produced._"
+
+    lines = ["**Argument Map:**", f"\n**Question:** {argument_map.question}"]
+    if argument_map.disagreement_axes:
+        lines.append("\n**Disagreement Axes:**")
+        lines.extend(f"- {axis}" for axis in argument_map.disagreement_axes)
+    for stance in argument_map.stances:
+        lines.append(f"\n**{stance.stance.capitalize()} Position:** {stance.thesis}")
+        if stance.strongest_argument:
+            lines.append(f"- Strongest argument: {stance.strongest_argument}")
+        lines.append("- Supporting claims:")
+        lines.extend(
+            f"  - {_format_map_claim(claim)}" for claim in stance.supporting_claims
+        )
+        lines.append("- Objections:")
+        lines.extend(f"  - {_format_map_claim(claim)}" for claim in stance.objections)
+    if argument_map.decisive_chunks:
+        lines.append(
+            f"\n**Decisive Evidence:** {', '.join(argument_map.decisive_chunks)}"
+        )
+    return "\n".join(lines)
+
+
+def _format_map_claim(claim: ArgumentMapClaim) -> str:
+    citations = ", ".join(claim.citations) if claim.citations else "none"
+    if claim.supported is True:
+        support = "supported"
+    elif claim.supported is False:
+        support = "flagged"
+    else:
+        support = "not adjudicated"
+    note = f" — {claim.note}" if claim.note else ""
+    return f"{claim.text} _[{citations}; {support}]_{note}"
 
 
 def _format_sources(chunks: list[RetrievalResult]) -> str:
@@ -403,7 +442,12 @@ def handle_analysis(
                     _format_verified_claims(result.verified_claims),
                 ]
             ),
-            _format_synthesis(result.report),
+            "\n\n".join(
+                [
+                    _format_synthesis(result.report),
+                    _format_argument_map(result.argument_map),
+                ]
+            ),
             _format_sources(result.chunks),
         )
     except ValueError as exc:

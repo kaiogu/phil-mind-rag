@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 
+from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.claim_extraction import extract_analysis_claims
 from phil_mind_rag.agents.claim_verification import verify_claims
 from phil_mind_rag.agents.grounding import run_grounding
@@ -17,7 +18,12 @@ from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materiali
 from phil_mind_rag.agents.state import AgentState
 
 if TYPE_CHECKING:
-    from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport, VerifiedClaim
+    from phil_mind_rag.agents.schema import (
+        ArgumentMap,
+        StanceMemo,
+        SynthesisReport,
+        VerifiedClaim,
+    )
     from phil_mind_rag.config import Settings
     from phil_mind_rag.pipeline import RAGPipeline
     from phil_mind_rag.retrieval.store import RetrievalResult
@@ -34,6 +40,7 @@ class AnalysisResult:
     idealist_memo: StanceMemo
     dualist_memo: StanceMemo
     verified_claims: list[VerifiedClaim] = field(default_factory=list)
+    argument_map: ArgumentMap | None = None
 
 
 logger = logging.getLogger(__name__)
@@ -109,6 +116,7 @@ def run_analysis(
         idealist_memo=ide,
         dualist_memo=dua,
     )
+    argument_map = build_argument_map(report=report, memos=[mat, ide, dua])
 
     return AnalysisResult(
         baseline_answer=baseline_answer,
@@ -118,6 +126,7 @@ def run_analysis(
         idealist_memo=ide,
         dualist_memo=dua,
         verified_claims=verified_claims,
+        argument_map=argument_map,
     )
 
 

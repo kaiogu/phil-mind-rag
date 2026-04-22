@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from openai import OpenAI
 
+from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.graph import AnalysisResult, verify_analysis_claims
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
@@ -156,6 +157,7 @@ def run_plain_analysis(
         idealist_memo=ide,
         dualist_memo=dua,
     )
+    argument_map = build_argument_map(report=report, memos=[mat, ide, dua])
     return AnalysisResult(
         baseline_answer=baseline_answer,
         report=report,
@@ -164,4 +166,5 @@ def run_plain_analysis(
         idealist_memo=ide,
         dualist_memo=dua,
         verified_claims=verified_claims,
+        argument_map=argument_map,
     )
