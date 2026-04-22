@@ -196,6 +196,12 @@ support dimension: callers can pass a claim/chunk judge to score whether valid
 citations actually support the claim, instead of treating valid chunk IDs as
 semantic entailment.
 
+Deterministic claim extraction lives in
+`phil_mind_rag/agents/claim_extraction.py`. It converts structured stance memos,
+grounding reports, and optional baseline answers into `AtomicClaim` records so
+claim audit, verification, and future argument-map views can operate over one
+common shape.
+
 Human spot-check required before any generated eval set is committed as ground truth.
 
 ---
