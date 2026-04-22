@@ -38,6 +38,14 @@ class AtomicClaim(BaseModel):
     source_chunk_id: str | None = None
 
 
+class VerifiedClaim(BaseModel):
+    claim: AtomicClaim
+    label: str  # supported | unsupported | ambiguous
+    citations: list[str]
+    repaired_citations: list[str] = Field(default_factory=list)
+    note: str
+
+
 class SynthesisReport(BaseModel):
     question: str
     areas_of_disagreement: list[str]

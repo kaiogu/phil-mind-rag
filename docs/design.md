@@ -202,6 +202,12 @@ grounding reports, and optional baseline answers into `AtomicClaim` records so
 claim audit, verification, and future argument-map views can operate over one
 common shape.
 
+Claim verification lives in `phil_mind_rag/agents/claim_verification.py`. It
+checks citation structure, optionally repairs missing or invalid citations using
+conservative lexical matching, and can call an optional semantic judge. Without a
+semantic judge, structurally valid claims are labeled `ambiguous` rather than
+treated as semantically proven.
+
 Human spot-check required before any generated eval set is committed as ground truth.
 
 ---
