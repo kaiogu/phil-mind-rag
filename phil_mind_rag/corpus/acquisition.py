@@ -15,6 +15,17 @@ if TYPE_CHECKING:
 
     from phil_mind_rag.pipeline import RAGPipeline
 
+AcquisitionState = Literal[
+    "discovered",
+    "selected",
+    "downloadable",
+    "downloaded",
+    "indexed",
+    "duplicate",
+    "skipped_paywalled",
+    "skipped_unavailable",
+    "failed",
+]
 DownloadStatus = Literal["downloaded", "failed", "already-indexed", "skipped"]
 
 
@@ -30,6 +41,7 @@ class DownloadJob:
     semantic_scholar_id: str | None = None
     access_status: str = "unknown"
     access_note: str | None = None
+    state: AcquisitionState = "selected"
 
 
 class DownloadResolver(Protocol):
@@ -49,6 +61,7 @@ class DownloadResult:
     path: Path | None
     success: bool
     status: DownloadStatus
+    state: AcquisitionState
     error: str | None = None
     ingested_chunks: int | None = None
     skipped: bool = False
@@ -149,6 +162,7 @@ def _download_one(
                 path=None,
                 success=False,
                 status="skipped",
+                state=_skipped_state(job),
                 skipped=True,
                 skip_reason=_skip_reason(job),
             )
@@ -162,6 +176,7 @@ def _download_one(
                 path=destination,
                 success=True,
                 status="already-indexed",
+                state="duplicate",
                 skipped=True,
                 skip_reason="PDF already exists in the acquisition directory.",
             )
@@ -176,6 +191,7 @@ def _download_one(
             path=destination,
             success=True,
             status="downloaded",
+            state="indexed" if pipeline is not None else "downloaded",
             ingested_chunks=chunk_count,
         )
     except Exception as exc:  # noqa: BLE001
@@ -186,6 +202,7 @@ def _download_one(
             path=None,
             success=False,
             status="failed",
+            state="failed",
             error=str(exc),
         )
 
@@ -210,3 +227,9 @@ def _skip_reason(job: DownloadJob) -> str:
             "Source surfaced but could not be downloaded due to copyright restrictions."
         )
     return "Source surfaced but no downloadable artifact was available."
+
+
+def _skipped_state(job: DownloadJob) -> AcquisitionState:
+    if job.access_status in {"paywalled", "copyrighted"}:
+        return "skipped_paywalled"
+    return "skipped_unavailable"

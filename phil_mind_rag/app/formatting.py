@@ -203,8 +203,11 @@ def format_discovery_report(
 def format_acquisition_results(results: list) -> str:
     lines = ["**Acquisition Results:**"]
     for result in results:
+        state = getattr(result, "state", result.status).replace("_", " ")
         if result.status == "already-indexed":
-            lines.append(f"- Already indexed **{result.title}**: {result.skip_reason}")
+            lines.append(
+                f"- Already indexed **{result.title}** ({state}): {result.skip_reason}"
+            )
             continue
         if result.success:
             extra = (
@@ -212,10 +215,12 @@ def format_acquisition_results(results: list) -> str:
                 if result.ingested_chunks is not None
                 else ""
             )
-            lines.append(f"- Downloaded **{result.title}**{extra}.")
+            lines.append(f"- Downloaded **{result.title}** ({state}){extra}.")
             continue
         if result.skipped:
-            lines.append(f"- Skipped **{result.title}**: {result.skip_reason}")
+            lines.append(
+                f"- Skipped **{result.title}** ({state}): {result.skip_reason}"
+            )
             continue
-        lines.append(f"- Failed **{result.title}**: {result.error}")
+        lines.append(f"- Failed **{result.title}** ({state}): {result.error}")
     return "\n".join(lines)
