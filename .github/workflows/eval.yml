@@ -1,0 +1,52 @@
+name: 👷 Manual evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_ragas:
+        description: "Run scripts/run_eval.py; requires OPENAI_API_KEY and indexed data."
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      top_k:
+        description: "Retrieval top-k for RAGAS/retrieval eval."
+        required: true
+        default: "5"
+        type: string
+
+jobs:
+  eval:
+    name: Eval reports
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run offline agent eval
+        run: uv run python scripts/run_agent_eval.py --report-dir eval_runs
+
+      - name: Run RAGAS/retrieval eval
+        if: ${{ inputs.run_ragas == 'true' }}
+        run: |
+          uv run python scripts/run_eval.py \
+            --eval-set data/eval_set.json \
+            --top-k "${{ inputs.top_k }}" \
+            --report-dir eval_runs
+
+      - name: Upload eval artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: eval_runs/
+          if-no-files-found: error
