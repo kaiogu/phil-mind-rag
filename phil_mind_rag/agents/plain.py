@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from openai import OpenAI
 
-from phil_mind_rag.agents.graph import AnalysisResult
+from phil_mind_rag.agents.graph import AnalysisResult, verify_analysis_claims
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 
@@ -148,6 +148,14 @@ def run_plain_analysis(
         raise RuntimeError("One or more agents returned no output")
 
     baseline_answer = pipeline.answer_from_contexts(question, chunks)
+    verified_claims = verify_analysis_claims(
+        baseline_answer=baseline_answer,
+        report=report,
+        chunks=chunks,
+        materialist_memo=mat,
+        idealist_memo=ide,
+        dualist_memo=dua,
+    )
     return AnalysisResult(
         baseline_answer=baseline_answer,
         report=report,
@@ -155,4 +163,5 @@ def run_plain_analysis(
         materialist_memo=mat,
         idealist_memo=ide,
         dualist_memo=dua,
+        verified_claims=verified_claims,
     )

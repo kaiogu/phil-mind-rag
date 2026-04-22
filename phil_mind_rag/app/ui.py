@@ -28,6 +28,7 @@ if TYPE_CHECKING:
         SourceDiscoveryReport,
         StanceMemo,
         SynthesisReport,
+        VerifiedClaim,
     )
     from phil_mind_rag.retrieval.store import RetrievalResult
 
@@ -93,6 +94,34 @@ def _format_grounding(report: SynthesisReport) -> str:
         citations = ", ".join(claim.citations) if claim.citations else "none"
         lines.append(
             f"✗ **[{claim.stance}]** {claim.text} _[{citations}]_\n\n   _{claim.note}_"
+        )
+    return "\n\n".join(lines)
+
+
+def _format_verified_claims(verified_claims: list[VerifiedClaim]) -> str:
+    if not verified_claims:
+        return "_No claim-verification audit was produced._"
+
+    label_symbols = {
+        "supported": "✓",
+        "unsupported": "✗",
+        "ambiguous": "!",
+    }
+    lines = ["**Claim Verification Audit:**"]
+    for verified in verified_claims:
+        citations = ", ".join(verified.citations) if verified.citations else "none"
+        repaired = (
+            f" Repaired: {', '.join(verified.repaired_citations)}."
+            if verified.repaired_citations
+            else ""
+        )
+        symbol = label_symbols.get(verified.label, "?")
+        source = verified.claim.source.replace("_", " ")
+        stance = f" / {verified.claim.stance}" if verified.claim.stance else ""
+        lines.append(
+            f"{symbol} **{verified.label}** ({source}{stance}) "
+            f"{verified.claim.text} _[{citations}]_\n\n"
+            f"   _{verified.note}{repaired}_"
         )
     return "\n\n".join(lines)
 
@@ -368,7 +397,12 @@ def handle_analysis(
             _format_stance_memo(result.materialist_memo),
             _format_stance_memo(result.idealist_memo),
             _format_stance_memo(result.dualist_memo),
-            _format_grounding(result.report),
+            "\n\n".join(
+                [
+                    _format_grounding(result.report),
+                    _format_verified_claims(result.verified_claims),
+                ]
+            ),
             _format_synthesis(result.report),
             _format_sources(result.chunks),
         )

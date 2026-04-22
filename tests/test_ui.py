@@ -7,12 +7,14 @@ from unittest.mock import MagicMock, patch
 
 from phil_mind_rag.agents.graph import AnalysisResult
 from phil_mind_rag.agents.schema import (
+    AtomicClaim,
     Claim,
     EvidenceClaim,
     SourceDiscoveryReport,
     SourceRecommendation,
     StanceMemo,
     SynthesisReport,
+    VerifiedClaim,
 )
 from phil_mind_rag.app.ui import (
     create_app,
@@ -132,6 +134,19 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
         materialist_memo=_memo("materialist"),
         idealist_memo=_memo("idealist"),
         dualist_memo=_memo("dualist"),
+        verified_claims=[
+            VerifiedClaim(
+                claim=AtomicClaim(
+                    text="Materialism has empirical support.",
+                    source="synthesis_supported",
+                    stance="materialist",
+                    citations=["chunk_0"],
+                ),
+                label="ambiguous",
+                citations=["chunk_0"],
+                note="Citations are structurally valid.",
+            )
+        ],
     )
 
     with (
@@ -149,6 +164,8 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
     assert "dualist support" in dualist
     assert "Supported Claims" in grounding
     assert "Flagged Claims" in grounding
+    assert "Claim Verification Audit" in grounding
+    assert "Materialism has empirical support." in grounding
     assert "Decisive Evidence" in synthesis
     assert "chunk_0" in sources
 
