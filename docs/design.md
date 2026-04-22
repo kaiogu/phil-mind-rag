@@ -113,7 +113,10 @@ class SynthesisReport(BaseModel):
     source_chunks_used: list[str]         # all chunk IDs cited across all memos
 ```
 
-These live in `phil_mind_rag/agents/schema.py`.
+The live analysis result also includes deterministic post-processing artifacts:
+`VerifiedClaim` entries for citation audit and an `ArgumentMap` projection that
+groups each stance's thesis, supporting claims, objections, adjudication notes,
+and strongest argument. These live in `phil_mind_rag/agents/schema.py`.
 
 ---
 
@@ -199,8 +202,7 @@ semantic entailment.
 Deterministic claim extraction lives in
 `phil_mind_rag/agents/claim_extraction.py`. It converts structured stance memos,
 grounding reports, and optional baseline answers into `AtomicClaim` records so
-claim audit, verification, and future argument-map views can operate over one
-common shape.
+claim audit and verification can operate over one common shape.
 
 Claim verification lives in `phil_mind_rag/agents/claim_verification.py`. It
 checks citation structure, optionally repairs missing or invalid citations using
@@ -209,6 +211,10 @@ semantic judge, structurally valid claims are labeled `ambiguous` rather than
 treated as semantically proven. Live analysis runs this audit after baseline
 answer generation in each orchestration path and displays the result in the UI
 Grounding panel.
+
+Argument-map construction lives in `phil_mind_rag/agents/argument_map.py`. It
+does not call the model; it projects existing stance memos and grounding claims
+into a readable disagreement map shown in the UI Synthesis panel.
 
 Human spot-check required before any generated eval set is committed as ground truth.
 
