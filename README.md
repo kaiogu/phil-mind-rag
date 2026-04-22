@@ -235,6 +235,12 @@ python main.py         # http://localhost:7860
 # Evaluate (after ingesting at least one doc)
 python scripts/run_eval.py
 
+# Persist RAGAS + retrieval reports
+uv run python scripts/run_eval.py --report-dir eval_runs
+
+# Offline deterministic multi-agent eval report
+uv run python scripts/run_agent_eval.py --report-dir eval_runs
+
 # Live paid-provider smoke test for source discovery
 uv run pytest --verbose -m paid_api tests/test_paid_api_smoke.py
 
