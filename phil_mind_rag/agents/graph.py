@@ -13,6 +13,12 @@ from openai import OpenAI
 from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.claim_extraction import extract_analysis_claims
 from phil_mind_rag.agents.claim_verification import verify_claims
+from phil_mind_rag.agents.evidence import (
+    StanceEvidenceSets,
+    StanceName,
+    build_stance_evidence_sets,
+    build_stance_query,
+)
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 from phil_mind_rag.agents.state import AgentState
@@ -54,8 +60,13 @@ def build_graph(pipeline: RAGPipeline, settings: Settings):  # type: ignore[retu
 
     def retrieve(state: AgentState) -> dict[str, list[RetrievalResult]]:
         logger.info("Retrieving context for: %s", state["question"][:80])
-        chunks = pipeline.retrieve(state["question"])
-        return {"chunks": chunks}
+        evidence_sets = retrieve_stance_evidence(state["question"], pipeline)
+        return {
+            "chunks": evidence_sets.chunks,
+            "materialist_chunks": evidence_sets.by_stance["materialist"],
+            "idealist_chunks": evidence_sets.by_stance["idealist"],
+            "dualist_chunks": evidence_sets.by_stance["dualist"],
+        }
 
     def run_stances(state: AgentState) -> dict[str, object]:
         logger.info("Running stance agents in parallel")
@@ -127,6 +138,23 @@ def run_analysis(
         dualist_memo=dua,
         verified_claims=verified_claims,
         argument_map=argument_map,
+    )
+
+
+def retrieve_stance_evidence(
+    question: str,
+    pipeline: RAGPipeline,
+) -> StanceEvidenceSets:
+    """Retrieve base and stance-specific chunks with shared prompt IDs."""
+    stances: tuple[StanceName, ...] = ("materialist", "idealist", "dualist")
+    base_chunks = pipeline.retrieve(question)
+    stance_chunks = {
+        stance: pipeline.retrieve(build_stance_query(question, stance))
+        for stance in stances
+    }
+    return build_stance_evidence_sets(
+        base_chunks=base_chunks,
+        stance_chunks=stance_chunks,
     )
 
 
