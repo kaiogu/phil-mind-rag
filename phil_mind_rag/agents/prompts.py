@@ -33,9 +33,10 @@ _GROUNDING_SYSTEM = (
 def _format_chunks(chunks: list[RetrievalResult]) -> str:
     parts = []
     for i, c in enumerate(chunks):
+        chunk_id = c.metadata.get("chunk_id", f"chunk_{i}")
         src = c.metadata.get("source", "?")
         sec = c.metadata.get("section", "?")
-        parts.append(f"[chunk_{i}] ({src} — {sec})\n{c.text}")
+        parts.append(f"[{chunk_id}] ({src} — {sec})\n{c.text}")
     return "\n\n---\n\n".join(parts)
 
 

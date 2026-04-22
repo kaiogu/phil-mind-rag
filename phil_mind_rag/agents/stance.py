@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from phil_mind_rag.agents._llm import generate_structured
+from phil_mind_rag.agents.evidence import StanceName, build_evidence_pack
 from phil_mind_rag.agents.prompts import stance_prompt
 from phil_mind_rag.agents.schema import StanceMemo
 
@@ -35,26 +36,53 @@ _DUALIST = (
 def run_materialist(
     state: AgentState, client: OpenAI, model: str
 ) -> dict[str, StanceMemo]:
-    system, user = stance_prompt(
-        "materialist", _MATERIALIST, state["question"], state["chunks"]
+    return _run_stance(
+        state=state,
+        client=client,
+        model=model,
+        stance="materialist",
+        instruction=_MATERIALIST,
+        result_key="materialist_memo",
     )
-    memo = generate_structured(client, model, system, user, StanceMemo)
-    return {"materialist_memo": memo}
 
 
 def run_idealist(
     state: AgentState, client: OpenAI, model: str
 ) -> dict[str, StanceMemo]:
-    system, user = stance_prompt(
-        "idealist", _IDEALIST, state["question"], state["chunks"]
+    return _run_stance(
+        state=state,
+        client=client,
+        model=model,
+        stance="idealist",
+        instruction=_IDEALIST,
+        result_key="idealist_memo",
     )
-    memo = generate_structured(client, model, system, user, StanceMemo)
-    return {"idealist_memo": memo}
 
 
 def run_dualist(state: AgentState, client: OpenAI, model: str) -> dict[str, StanceMemo]:
+    return _run_stance(
+        state=state,
+        client=client,
+        model=model,
+        stance="dualist",
+        instruction=_DUALIST,
+        result_key="dualist_memo",
+    )
+
+
+def _run_stance(
+    *,
+    state: AgentState,
+    client: OpenAI,
+    model: str,
+    stance: StanceName,
+    instruction: str,
+    result_key: str,
+) -> dict[str, StanceMemo]:
+    evidence_pack = build_evidence_pack(stance, state["chunks"])
     system, user = stance_prompt(
-        "dualist", _DUALIST, state["question"], state["chunks"]
+        stance, instruction, state["question"], evidence_pack.chunks
     )
     memo = generate_structured(client, model, system, user, StanceMemo)
-    return {"dualist_memo": memo}
+    memo = memo.model_copy(update={"evidence_chunk_ids": evidence_pack.chunk_ids})
+    return {result_key: memo}

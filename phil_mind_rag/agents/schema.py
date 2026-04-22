@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EvidenceClaim(BaseModel):
@@ -17,6 +17,7 @@ class StanceMemo(BaseModel):
     rival_critiques: list[EvidenceClaim]
     confidence: float  # 0.0–1.0
     uncertainty_notes: str  # what the agent is unsure about
+    evidence_chunk_ids: list[str] = Field(default_factory=list)
 
 
 class Claim(BaseModel):
