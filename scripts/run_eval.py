@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from phil_mind_rag.config import get_settings
 from phil_mind_rag.eval.evaluator import EvalSample, RAGEvaluator, load_eval_questions
+from phil_mind_rag.eval.reporting import timestamped_eval_dir, write_json_report
+from phil_mind_rag.eval.retrieval_evaluator import evaluate_retrieval
 from phil_mind_rag.pipeline import RAGPipeline
 
 
@@ -36,6 +38,12 @@ def main() -> None:
         type=int,
         default=5,
         help="Number of chunks to retrieve per question.",
+    )
+    parser.add_argument(
+        "--report-dir",
+        type=Path,
+        default=None,
+        help="Optional base directory for timestamped JSON eval reports.",
     )
     args = parser.parse_args()
 
@@ -67,8 +75,10 @@ def main() -> None:
         args.top_k,
     )
     samples: list[EvalSample] = []
+    retrieved_by_eval_id = {}
     for i, eval_question in enumerate(questions, 1):
         contexts = pipeline.retrieve(eval_question.question, top_k=args.top_k)
+        retrieved_by_eval_id[eval_question.id] = contexts
         answer = pipeline.query(eval_question.question, top_k=args.top_k)
 
         samples.append(
@@ -85,6 +95,14 @@ def main() -> None:
             eval_question.question[:60],
         )
 
+    retrieval_result = evaluate_retrieval(
+        questions=questions,
+        retrieved_by_eval_id=retrieved_by_eval_id,
+    )
+    print("\n=== Retrieval Evaluation Results ===")
+    print(retrieval_result.summary())
+    print("====================================\n")
+
     logger.info("Running RAGAS evaluation…")
     evaluator = RAGEvaluator()
     result = evaluator.evaluate(samples)
@@ -92,6 +110,30 @@ def main() -> None:
     print("\n=== RAGAS Evaluation Results ===")
     print(result.summary())
     print("================================\n")
+
+    if args.report_dir is not None:
+        run_dir = timestamped_eval_dir(args.report_dir)
+        write_json_report(
+            run_dir / "retrieval.json",
+            {
+                "config": {
+                    "eval_set": args.eval_set,
+                    "top_k": args.top_k,
+                },
+                "result": retrieval_result,
+            },
+        )
+        write_json_report(
+            run_dir / "ragas.json",
+            {
+                "config": {
+                    "eval_set": args.eval_set,
+                    "top_k": args.top_k,
+                },
+                "result": result,
+            },
+        )
+        logger.info("Wrote eval reports to %s", run_dir)
 
 
 if __name__ == "__main__":
