@@ -6,6 +6,7 @@ No framework imports here; this is a pure domain layer.
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -67,14 +68,53 @@ class SectionAwareChunker(BaseChunker):
 
         # Section fits in one chunk — keep it whole
         if len(words) <= self.chunk_size:
-            return [Chunk(text=section.text, metadata=base_meta)]
+            return [
+                Chunk(
+                    text=section.text,
+                    metadata=_with_chunk_identity(base_meta, source, section.title, 0),
+                )
+            ]
 
         chunks: list[Chunk] = []
         start = 0
+        chunk_index = 0
         while start < len(words):
             end = start + self.chunk_size
             chunk_text = " ".join(words[start:end])
-            chunks.append(Chunk(text=chunk_text, metadata={**base_meta}))
+            chunks.append(
+                Chunk(
+                    text=chunk_text,
+                    metadata=_with_chunk_identity(
+                        base_meta,
+                        source,
+                        section.title,
+                        chunk_index,
+                    ),
+                )
+            )
             start += self.chunk_size - self.chunk_overlap
+            chunk_index += 1
 
         return chunks
+
+
+def _with_chunk_identity(
+    metadata: dict[str, str],
+    source: str,
+    section: str,
+    chunk_index: int,
+) -> dict[str, str]:
+    return {
+        **metadata,
+        "chunk_index": str(chunk_index),
+        "source_chunk_id": _stable_chunk_id(source, section, chunk_index),
+    }
+
+
+def _stable_chunk_id(source: str, section: str, chunk_index: int) -> str:
+    return f"{_slug(source)}:{_slug(section)}:chunk_{chunk_index}"
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+    return slug or "unknown"

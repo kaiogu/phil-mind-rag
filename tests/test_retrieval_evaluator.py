@@ -122,3 +122,22 @@ def test_chunk_id_can_be_derived_from_source_section_and_index() -> None:
 
     assert result.chunk_precision_at_k == 1.0
     assert result.chunk_recall_at_k == 1.0
+
+
+def test_stable_source_chunk_id_is_used_for_eval_matching() -> None:
+    result = evaluate_retrieval_question(
+        question=_question(expected_chunk_ids=["nagel_bat:intro:chunk_0"]),
+        retrieved=[
+            RetrievalResult(
+                text="passage",
+                score=0.9,
+                metadata={
+                    "source": "nagel_bat",
+                    "source_chunk_id": "nagel_bat:intro:chunk_0",
+                },
+            )
+        ],
+    )
+
+    assert result.chunk_precision_at_k == 1.0
+    assert result.chunk_recall_at_k == 1.0

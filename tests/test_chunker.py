@@ -39,6 +39,25 @@ class TestSectionAwareChunker:
         chunk = chunker.chunk(doc)[0]
         assert chunk.metadata["source"] == "test.pdf"
         assert chunk.metadata["section"] == "Introduction"
+        assert chunk.metadata["chunk_index"] == "0"
+        assert chunk.metadata["source_chunk_id"] == "test_pdf:introduction:chunk_0"
+
+    def test_long_section_metadata_has_stable_chunk_ids(self) -> None:
+        chunker = SectionAwareChunker(chunk_size=5, chunk_overlap=1)
+        doc = _doc(("Hard Problem", " ".join(str(i) for i in range(12))))
+
+        chunks = chunker.chunk(doc)
+
+        assert [chunk.metadata["chunk_index"] for chunk in chunks] == [
+            "0",
+            "1",
+            "2",
+        ]
+        assert [chunk.metadata["source_chunk_id"] for chunk in chunks] == [
+            "test_pdf:hard_problem:chunk_0",
+            "test_pdf:hard_problem:chunk_1",
+            "test_pdf:hard_problem:chunk_2",
+        ]
 
     def test_multiple_sections_all_appear_in_output(self) -> None:
         chunker = SectionAwareChunker()
