@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from phil_mind_rag.corpus.acquisition import (
+    AcquisitionState,
     DownloadJob,
     DownloadResolver,
     DownloadResult,
@@ -26,6 +27,7 @@ from phil_mind_rag.corpus.resolvers import (
 
 __all__ = [
     "ArxivResolver",
+    "AcquisitionState",
     "DirectDownloadResolver",
     "DownloadJob",
     "DownloadResolver",
