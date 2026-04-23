@@ -153,7 +153,7 @@ def create_app() -> gr.Blocks:
                     "str",
                     "str",
                 ],
-                value=handle_refresh,
+                value=[],
                 interactive=False,
                 wrap=True,
             )
