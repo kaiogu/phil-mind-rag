@@ -16,8 +16,13 @@ jobs:
           fetch-depth: 0
 
       - name: Check commit messages
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
+          PR_TITLE: ${{ github.event.pull_request.title || '' }}
         run: |
           python3 - <<'EOF'
+          import os
           import re, subprocess, sys
 
           TYPES = r"feat|fix|docs|style|refactor|test|build|ci|chore|perf|revert"
@@ -25,6 +30,22 @@ jobs:
               rf"^[^\x00-\x7F]+\s+({TYPES})(\([a-zA-Z0-9_/:-]+\))?: .{{1,100}}$"
           )
           SKIP_PREFIXES = ("Merge ", "Revert ", "fixup!", "squash!", "Initial commit")
+
+          if (
+              os.environ["EVENT_NAME"] == "pull_request"
+              and os.environ["PR_AUTHOR"] == "dependabot[bot]"
+          ):
+              title = os.environ["PR_TITLE"].strip()
+              if PATTERN.match(title):
+                  print("✅ Dependabot PR title follows conventional commits format.")
+                  sys.exit(0)
+
+              print("❌ Non-conforming Dependabot PR title:")
+              print(f"  - {title!r}")
+              print()
+              print("Format: <emoji> <type>[(<scope>)]: <description>")
+              print("Example: 📦 build(deps): bump package from 1.0.0 to 1.0.1")
+              sys.exit(1)
 
           base = "${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
           result = subprocess.run(
