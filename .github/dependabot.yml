@@ -4,7 +4,19 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    cooldown:
+      semver-major-days: 14
     open-pull-requests-limit: 5
+    groups:
+      actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     commit-message:
       prefix: "👷 ci"
       include: "scope"
@@ -13,7 +25,35 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+      day: "monday"
+      time: "09:30"
+      timezone: "America/Sao_Paulo"
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    open-pull-requests-limit: 10
+    groups:
+      runtime-minor-patch:
+        patterns:
+          - "chromadb"
+          - "gradio"
+          - "langgraph"
+          - "openai"
+          - "pydantic-settings"
+          - "ragas"
+          - "unstructured*"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-tooling-minor-patch:
+        patterns:
+          - "pytest*"
+          - "ruff"
+          - "ty"
+        update-types:
+          - "minor"
+          - "patch"
     commit-message:
       prefix: "📦 build"
       prefix-development: "📦 build"
@@ -23,6 +63,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "America/Sao_Paulo"
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
     open-pull-requests-limit: 5
     commit-message:
       prefix: "📦 build"
