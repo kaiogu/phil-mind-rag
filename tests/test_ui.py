@@ -388,7 +388,7 @@ def test_handle_discover_sources_formats_report_and_caches_state() -> None:
         pass
 
     settings = MagicMock()
-    settings.openai_api_key.get_secret_value.return_value = "sk-test"
+    settings.openai_api_key.get_secret_value.return_value = "test-api-key"
     settings.openai_chat_model = "gpt-5-mini"
     settings.openai_web_search_model = "gpt-5-mini"
 
@@ -418,7 +418,7 @@ def test_handle_discover_sources_formats_report_and_caches_state() -> None:
 
 def test_handle_discover_sources_shows_web_search_note_when_unconfigured() -> None:
     settings = MagicMock()
-    settings.openai_api_key.get_secret_value.return_value = "sk-test"
+    settings.openai_api_key.get_secret_value.return_value = "test-api-key"
     settings.openai_chat_model = "gpt-5-mini"
     settings.openai_web_search_model = "gpt-5-mini"
 

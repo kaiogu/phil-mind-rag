@@ -1,6 +1,8 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+.pytest_cache/
+.ruff_cache/
 build/
 dist/
 wheels/
@@ -8,6 +10,7 @@ wheels/
 
 # Virtual environments
 .venv
+.uv-cache/
 
 # Secrets
 .env
@@ -24,6 +27,7 @@ eval_runs/
 
 # Local agent instructions (developer-specific, not for git)
 CLAUDE.local.md
+.claude/
 .codex
 
 # IDE

@@ -1,6 +1,7 @@
 # VCS and local tooling
 .git
 .github
+.claude
 .codex
 .idea
 .vscode
@@ -11,6 +12,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.uv-cache/
 .venv/
 build/
 dist/

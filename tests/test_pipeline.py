@@ -17,7 +17,7 @@ from phil_mind_rag.retrieval.store import RetrievalResult
 @pytest.fixture
 def mock_settings(tmp_path: Path) -> MagicMock:
     s = MagicMock()
-    s.openai_api_key.get_secret_value.return_value = "sk-test"
+    s.openai_api_key.get_secret_value.return_value = "test-api-key"
     s.openai_embedding_model = "text-embedding-3-small"
     s.openai_chat_model = "gpt-5-mini"
     s.chroma_persist_dir = tmp_path / "chroma"
