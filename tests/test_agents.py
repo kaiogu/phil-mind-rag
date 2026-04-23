@@ -750,7 +750,7 @@ class TestRunAnalysis:
         mock_pipeline.answer_from_contexts.return_value = "Baseline grounded answer."
 
         mock_settings = MagicMock()
-        mock_settings.openai_api_key.get_secret_value.return_value = "test-api-key"
+        mock_settings.llm_provider = "openai"
         mock_settings.openai_chat_model = "gpt-4o-mini"
 
         mat = stub_memo.model_copy(update={"stance": "materialist"})
@@ -774,7 +774,11 @@ class TestRunAnalysis:
             "phil_mind_rag.agents.grounding.generate_structured",
             return_value=stub_report,
         )
-        with patch("phil_mind_rag.agents.graph.OpenAI"), stance_patch, ground_patch:
+        with (
+            patch("phil_mind_rag.agents.graph.generation_client"),
+            stance_patch,
+            ground_patch,
+        ):
             result = run_analysis(
                 "What is consciousness?", mock_pipeline, mock_settings
             )
@@ -809,7 +813,7 @@ class TestRunAnalysis:
         mock_pipeline.answer_from_contexts.return_value = "Baseline."
 
         mock_settings = MagicMock()
-        mock_settings.openai_api_key.get_secret_value.return_value = "test-api-key"
+        mock_settings.llm_provider = "openai"
         mock_settings.openai_chat_model = "gpt-4o-mini"
 
         mat = stub_memo.model_copy(update={"stance": "materialist"})
@@ -824,7 +828,11 @@ class TestRunAnalysis:
             "phil_mind_rag.agents.grounding.generate_structured",
             return_value=stub_report,
         )
-        with patch("phil_mind_rag.agents.graph.OpenAI"), stance_patch, ground_patch:
+        with (
+            patch("phil_mind_rag.agents.graph.generation_client"),
+            stance_patch,
+            ground_patch,
+        ):
             run_analysis("Hard problem of consciousness", mock_pipeline, mock_settings)
 
         assert mock_pipeline.retrieve.call_count == 4
@@ -858,7 +866,7 @@ class TestPlainOrchestration:
         mock_pipeline.answer_from_contexts.return_value = "Baseline grounded answer."
 
         mock_settings = MagicMock()
-        mock_settings.openai_api_key.get_secret_value.return_value = "test-api-key"
+        mock_settings.llm_provider = "openai"
         mock_settings.openai_chat_model = "gpt-4o-mini"
 
         mat = stub_memo.model_copy(update={"stance": "materialist"})
@@ -882,7 +890,11 @@ class TestPlainOrchestration:
             "phil_mind_rag.agents.grounding.generate_structured",
             return_value=stub_report,
         )
-        with patch("phil_mind_rag.agents.plain.OpenAI"), stance_patch, ground_patch:
+        with (
+            patch("phil_mind_rag.agents.plain.generation_client"),
+            stance_patch,
+            ground_patch,
+        ):
             result = run_plain_analysis(
                 "What is consciousness?", mock_pipeline, mock_settings
             )
@@ -978,10 +990,10 @@ class TestStartup:
         """StateGraph(AgentState) must not raise NameError on RetrievalResult."""
         mock_pipeline = MagicMock()
         mock_settings = MagicMock()
-        mock_settings.openai_api_key.get_secret_value.return_value = "test-api-key"
+        mock_settings.llm_provider = "openai"
         mock_settings.openai_chat_model = "gpt-4o-mini"
 
-        with patch("phil_mind_rag.agents.graph.OpenAI"):
+        with patch("phil_mind_rag.agents.graph.generation_client"):
             # build_graph() calls StateGraph(AgentState) which calls
             # get_type_hints(AgentState) — this is the call that failed.
             from phil_mind_rag.agents.graph import build_graph

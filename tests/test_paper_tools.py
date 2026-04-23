@@ -399,6 +399,7 @@ def test_openai_web_search_provider_maps_results() -> None:
 def test_default_source_providers_includes_openai_web_search() -> None:
     settings = MagicMock()
     settings.openalex_email = "me@example.com"
+    settings.openai_api_key = MagicMock()
     settings.openai_api_key.get_secret_value.return_value = "test-api-key"
     settings.openai_web_search_model = "gpt-5-mini"
 

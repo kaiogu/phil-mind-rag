@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from openai import OpenAI
-
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
 from phil_mind_rag.agents.paper_tools import (
     DownloadJob,
@@ -29,6 +27,7 @@ from phil_mind_rag.app.formatting import (
     format_verified_claims,
 )
 from phil_mind_rag.app.state import get_pipeline, get_settings
+from phil_mind_rag.providers import generation_client, generation_model
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +110,7 @@ def handle_discover_sources(
 
     settings = get_settings()
     providers = default_source_providers(settings)
-    client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
+    client = generation_client(settings)
     provider_names = {provider.__class__.__name__ for provider in providers}
 
     try:
@@ -120,7 +119,7 @@ def handle_discover_sources(
             question=question,
             providers=providers,
             client=client,
-            model=settings.openai_chat_model,
+            model=generation_model(settings),
             search_query=search_query or None,
         )
         return (

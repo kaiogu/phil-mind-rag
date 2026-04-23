@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -17,16 +18,34 @@ def generate_structured[T: BaseModel](
     user: str,
     schema_cls: type[T],
 ) -> T:
-    """Call the OpenAI structured-outputs endpoint and return a validated model."""
-    response = client.beta.chat.completions.parse(
+    """Call an OpenAI-compatible structured-output endpoint."""
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        response_format=schema_cls,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema_cls.__name__,
+                "strict": True,
+                "schema": schema_cls.model_json_schema(),
+            },
+        },
     )
-    result = response.choices[0].message.parsed
-    if result is None:
+    content = response.choices[0].message.content
+    if not content:
         raise ValueError(f"Structured output returned None for {schema_cls.__name__}")
-    return result
+    if isinstance(content, str):
+        return schema_cls.model_validate(json.loads(content))
+    text = "".join(
+        part.text
+        for part in content
+        if getattr(part, "type", None) == "text" and getattr(part, "text", None)
+    )
+    if not text:
+        raise ValueError(
+            f"Structured output returned empty content for {schema_cls.__name__}"
+        )
+    return schema_cls.model_validate(json.loads(text))

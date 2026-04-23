@@ -388,7 +388,7 @@ def test_handle_discover_sources_formats_report_and_caches_state() -> None:
         pass
 
     settings = MagicMock()
-    settings.openai_api_key.get_secret_value.return_value = "test-api-key"
+    settings.llm_provider = "openai"
     settings.openai_chat_model = "gpt-5-mini"
     settings.openai_web_search_model = "gpt-5-mini"
 
@@ -398,7 +398,7 @@ def test_handle_discover_sources_formats_report_and_caches_state() -> None:
             "phil_mind_rag.app.callbacks.default_source_providers",
             return_value=[_OpenAIWebSearchProvider()],
         ),
-        patch("phil_mind_rag.app.callbacks.OpenAI"),
+        patch("phil_mind_rag.app.callbacks.generation_client"),
         patch(
             "phil_mind_rag.app.callbacks.discover_sources",
             return_value=_source_report(),
@@ -418,7 +418,7 @@ def test_handle_discover_sources_formats_report_and_caches_state() -> None:
 
 def test_handle_discover_sources_shows_web_search_note_when_unconfigured() -> None:
     settings = MagicMock()
-    settings.openai_api_key.get_secret_value.return_value = "test-api-key"
+    settings.llm_provider = "openai"
     settings.openai_chat_model = "gpt-5-mini"
     settings.openai_web_search_model = "gpt-5-mini"
 
@@ -428,7 +428,7 @@ def test_handle_discover_sources_shows_web_search_note_when_unconfigured() -> No
             "phil_mind_rag.app.callbacks.default_source_providers",
             return_value=[object()],
         ),
-        patch("phil_mind_rag.app.callbacks.OpenAI"),
+        patch("phil_mind_rag.app.callbacks.generation_client"),
         patch(
             "phil_mind_rag.app.callbacks.discover_sources",
             return_value=_source_report(),

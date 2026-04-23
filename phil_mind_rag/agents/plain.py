@@ -10,9 +10,7 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-from openai import OpenAI
+from typing import TYPE_CHECKING, Any
 
 from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.graph import (
@@ -22,6 +20,7 @@ from phil_mind_rag.agents.graph import (
 )
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
+from phil_mind_rag.providers import generation_client, generation_model
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -110,9 +109,8 @@ def run_plain_analysis(
     settings: Settings,
 ) -> AnalysisResult:
     """Run the multi-agent analysis using plain Python orchestration."""
-    api_key = settings.openai_api_key.get_secret_value()
-    client = OpenAI(api_key=api_key)
-    model = settings.openai_chat_model
+    client = generation_client(settings)
+    model = generation_model(settings)
 
     logger.info("Retrieving context for: %s", question[:80])
     evidence_sets = retrieve_stance_evidence(question, pipeline)
@@ -130,7 +128,7 @@ def run_plain_analysis(
     }
 
     logger.info("Running stance agents in parallel with plain orchestration")
-    stance_fns: list[Callable[[AgentState, OpenAI, str], dict[str, StanceMemo]]] = [
+    stance_fns: list[Callable[[AgentState, Any, str], dict[str, StanceMemo]]] = [
         run_materialist,
         run_idealist,
         run_dualist,

@@ -1,8 +1,9 @@
 """Application configuration — loaded from environment variables / .env file."""
 
 from pathlib import Path
+from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -17,12 +18,38 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # --- OpenAI ---------------------------------------------------------
-    openai_api_key: SecretStr
-    openai_embedding_model: str = "text-embedding-3-small"
+    # --- Generation -----------------------------------------------------
+    llm_provider: Literal["openai", "openrouter"] = "openai"
+    openai_api_key: SecretStr | None = None
     openai_chat_model: str = "gpt-5-mini"
+    openrouter_api_key: SecretStr | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_chat_model: str = "openrouter/free"
+
+    # --- OpenAI ---------------------------------------------------------
+    openai_embedding_model: str = "text-embedding-3-small"
     openai_web_search_model: str = "gpt-5-mini"
     openalex_email: str | None = None
+
+    # --- Embeddings -----------------------------------------------------
+    embedding_provider: Literal[
+        "openai", "sentence_transformers", "openrouter_free_auto"
+    ] = "openai"
+    sentence_transformers_embedding_model: str = (
+        "sentence-transformers/all-MiniLM-L6-v2"
+    )
+    openrouter_embedding_model_preferences: tuple[str, ...] = (
+        "qwen/qwen3-embedding-0.6b",
+        "voyage/voyage-3-lite",
+        "openai/text-embedding-3-small",
+    )
+
+    @field_validator("openrouter_embedding_model_preferences", mode="before")
+    @classmethod
+    def _parse_embedding_preferences(cls, value: object) -> object:
+        if isinstance(value, str):
+            return tuple(item.strip() for item in value.split(",") if item.strip())
+        return value
 
     # --- ChromaDB -------------------------------------------------------
     chroma_persist_dir: Path = _PROJECT_ROOT / "data" / "chroma"
@@ -45,4 +72,4 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Return a cached settings instance."""
-    return Settings()  # type: ignore
+    return Settings()

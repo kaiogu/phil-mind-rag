@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +21,10 @@ class BaseLLM(ABC):
 
 
 class OpenAILLM(BaseLLM):
-    """Thin wrapper around the OpenAI chat completions API."""
+    """Thin wrapper around an OpenAI-compatible chat completions API."""
 
-    def __init__(self, api_key: str, model: str = "gpt-5-mini") -> None:
-        from openai import OpenAI
-
-        self._client = OpenAI(api_key=api_key)
+    def __init__(self, client: OpenAI, model: str = "gpt-5-mini") -> None:
+        self._client = client
         self._model = model
 
     def generate(self, prompt: str) -> str:

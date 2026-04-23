@@ -17,9 +17,18 @@ from phil_mind_rag.retrieval.store import RetrievalResult
 @pytest.fixture
 def mock_settings(tmp_path: Path) -> MagicMock:
     s = MagicMock()
+    s.llm_provider = "openai"
+    s.embedding_provider = "openai"
     s.openai_api_key.get_secret_value.return_value = "test-api-key"
+    s.openrouter_api_key.get_secret_value.return_value = "or-key"
+    s.openrouter_base_url = "https://openrouter.ai/api/v1"
     s.openai_embedding_model = "text-embedding-3-small"
     s.openai_chat_model = "gpt-5-mini"
+    s.sentence_transformers_embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+    s.openrouter_embedding_model_preferences = (
+        "qwen/qwen3-embedding-0.6b",
+        "voyage/voyage-3-lite",
+    )
     s.chroma_persist_dir = tmp_path / "chroma"
     s.chroma_collection_name = "test_col"
     s.registry_path = tmp_path / "registry.json"
@@ -34,7 +43,8 @@ def mock_settings(tmp_path: Path) -> MagicMock:
 def pipeline(mock_settings: MagicMock):
     """RAGPipeline with all external dependencies patched."""
     with (
-        patch("phil_mind_rag.pipeline.OpenAI"),
+        patch("phil_mind_rag.pipeline.generation_client"),
+        patch("phil_mind_rag.pipeline.build_embedder"),
         patch("phil_mind_rag.pipeline.ChromaVectorStore"),
         patch("phil_mind_rag.pipeline.UnstructuredPDFParser"),
         patch("phil_mind_rag.pipeline.DocumentRegistry"),
@@ -181,3 +191,28 @@ class TestDocumentCount:
     def test_delegates_to_store_count(self, pipeline) -> None:
         pipeline._store.count.return_value = 42
         assert pipeline.document_count == 42
+
+
+class TestEmbedderSelection:
+    def test_prefers_free_openrouter_embedding_when_available(
+        self, mock_settings: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_settings.llm_provider = "openrouter"
+        mock_settings.embedding_provider = "openrouter_free_auto"
+
+        fake_embedder = MagicMock()
+        fake_embedder.model_name = "qwen/qwen3-embedding-0.6b"
+
+        with (
+            patch("phil_mind_rag.pipeline.generation_client", return_value=MagicMock()),
+            patch("phil_mind_rag.pipeline.build_embedder", return_value=fake_embedder),
+            patch("phil_mind_rag.pipeline.ChromaVectorStore"),
+            patch("phil_mind_rag.pipeline.UnstructuredPDFParser"),
+            patch("phil_mind_rag.pipeline.DocumentRegistry"),
+            patch("phil_mind_rag.pipeline.MetadataExtractor"),
+        ):
+            from phil_mind_rag.pipeline import RAGPipeline
+
+            pipeline = RAGPipeline(mock_settings)
+
+        assert pipeline._embedding_model == "qwen/qwen3-embedding-0.6b"

@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from openai import OpenAI
-
 from phil_mind_rag.agents.schema import SourceCandidate
+from phil_mind_rag.providers import openai_web_search_client
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from openai import OpenAI
 
     from phil_mind_rag.config import Settings
 
@@ -141,15 +142,18 @@ class OpenAIWebSearchProvider:
 
 def default_source_providers(settings: Settings) -> list[SourceSearchProvider]:
     """Build the configured discovery providers for this environment."""
-    client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
     providers: list[SourceSearchProvider] = [
         OpenAlexSourceProvider(email=settings.openalex_email),
         SemanticScholarSourceProvider(),
-        OpenAIWebSearchProvider(
-            client=client,
-            model=settings.openai_web_search_model,
-        ),
     ]
+    client = openai_web_search_client(settings)
+    if client is not None:
+        providers.append(
+            OpenAIWebSearchProvider(
+                client=client,
+                model=settings.openai_web_search_model,
+            )
+        )
     return providers
 
 

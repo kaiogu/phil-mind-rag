@@ -17,6 +17,7 @@ pytestmark = pytest.mark.paid_api
 
 def test_openai_web_search_provider_live() -> None:
     settings = get_settings()
+    assert settings.openai_api_key is not None
     provider = OpenAIWebSearchProvider(
         client=OpenAI(api_key=settings.openai_api_key.get_secret_value()),
         model=settings.openai_web_search_model,
@@ -31,6 +32,7 @@ def test_openai_web_search_provider_live() -> None:
 
 def test_discover_sources_live() -> None:
     settings = get_settings()
+    assert settings.openai_api_key is not None
     client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
     providers = default_source_providers(settings)
 

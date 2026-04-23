@@ -9,8 +9,6 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from openai import OpenAI
-
 from phil_mind_rag.generation.llm import OpenAILLM
 from phil_mind_rag.generation.prompts import RAGPrompt
 from phil_mind_rag.ingestion.chunker import Chunk, SectionAwareChunker
@@ -20,6 +18,8 @@ from phil_mind_rag.ingestion.metadata_extractor import (
 )
 from phil_mind_rag.ingestion.parser import ParsedDocument, UnstructuredPDFParser
 from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
+from phil_mind_rag.providers import generation_client, generation_model
+from phil_mind_rag.retrieval.embeddings import BaseEmbedder, build_embedder
 from phil_mind_rag.retrieval.retriever import VectorRetriever
 from phil_mind_rag.retrieval.store import ChromaVectorStore, RetrievalResult
 from phil_mind_rag.security import sanitise_query, validate_document
@@ -37,7 +37,6 @@ class RAGPipeline:
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        api_key = settings.openai_api_key.get_secret_value()
 
         # --- Components (all behind interfaces) -------------------------
         self._parser = UnstructuredPDFParser()
@@ -51,33 +50,42 @@ class RAGPipeline:
         )
         self._registry = DocumentRegistry(settings.registry_path)
 
-        # OpenAI client for embeddings
-        self._openai = OpenAI(api_key=api_key)
-        self._embedding_model = settings.openai_embedding_model
+        self._embedder = self._build_embedder()
+        self._embedding_model = self._embedder.model_name
 
         self._retriever = VectorRetriever(
             store=self._store,
             embed_fn=self._embed_text,
         )
-        self._llm = OpenAILLM(api_key=api_key, model=settings.openai_chat_model)
+        chat_client = generation_client(settings)
+        self._llm = OpenAILLM(
+            client=chat_client,
+            model=generation_model(settings),
+        )
         self._prompt = RAGPrompt()
         self._metadata_extractor = MetadataExtractor(llm=self._llm)
+
+    def _build_embedder(self) -> BaseEmbedder:
+        client = None
+        if (
+            self._settings.embedding_provider == "openai"
+            and self._settings.llm_provider == "openai"
+        ):
+            client = generation_client(self._settings)
+        if (
+            self._settings.embedding_provider == "openrouter_free_auto"
+            and self._settings.llm_provider == "openrouter"
+        ):
+            client = generation_client(self._settings)
+        return build_embedder(self._settings, openai_client=client)
 
     # --- Embedding helper -----------------------------------------------
 
     def _embed_text(self, text: str) -> list[float]:
-        response = self._openai.embeddings.create(
-            input=text,
-            model=self._embedding_model,
-        )
-        return response.data[0].embedding
+        return self._embedder.embed_text(text)
 
     def _embed_batch(self, texts: list[str]) -> list[list[float]]:
-        response = self._openai.embeddings.create(
-            input=texts,
-            model=self._embedding_model,
-        )
-        return [item.embedding for item in response.data]
+        return self._embedder.embed_batch(texts)
 
     # --- Public API (individual steps) ------------------------------------
 
@@ -95,7 +103,7 @@ class RAGPipeline:
         return self._chunker.chunk(document)
 
     def embed(self, chunks: list[Chunk]) -> list[list[float]]:
-        """Embed a list of chunks via OpenAI."""
+        """Embed a list of chunks via the configured backend."""
         return self._embed_batch([c.text for c in chunks])
 
     def store(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:

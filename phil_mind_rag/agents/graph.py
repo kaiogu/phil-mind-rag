@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from langgraph.graph import END, START, StateGraph
-from openai import OpenAI
 
 from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.claim_extraction import extract_analysis_claims
@@ -22,6 +21,7 @@ from phil_mind_rag.agents.evidence import (
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 from phil_mind_rag.agents.state import AgentState
+from phil_mind_rag.providers import generation_client, generation_model
 
 if TYPE_CHECKING:
     from phil_mind_rag.agents.schema import (
@@ -54,9 +54,8 @@ logger = logging.getLogger(__name__)
 
 def build_graph(pipeline: RAGPipeline, settings: Settings):  # type: ignore[return]
     """Compile and return the LangGraph StateGraph."""
-    api_key = settings.openai_api_key.get_secret_value()
-    client = OpenAI(api_key=api_key)
-    model = settings.openai_chat_model
+    client = generation_client(settings)
+    model = generation_model(settings)
 
     def retrieve(state: AgentState) -> dict[str, list[RetrievalResult]]:
         logger.info("Retrieving context for: %s", state["question"][:80])
