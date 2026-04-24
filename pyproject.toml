@@ -52,10 +52,11 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--verbose --tb=short -m 'not paid_api'"
+addopts = "--verbose --tb=short -m 'not paid_api and not free_api'"
 pythonpath = ["."]
 markers = [
     "paid_api: tests that call paid external APIs and are disabled by default",
+    "free_api: tests that call free external APIs or real hosted free models and are disabled by default",
 ]
 
 [tool.ty.environment]
