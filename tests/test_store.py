@@ -48,3 +48,48 @@ def test_add_chunks_upserts_to_allow_reingesting_stable_ids() -> None:
 
     collection.upsert.assert_called_once()
     collection.add.assert_not_called()
+
+
+def test_add_chunks_persists_embedding_dimension_metadata_for_new_collection() -> None:
+    store, collection = _store_with_fake_collection()
+    collection.metadata = {"hnsw:space": "cosine"}
+    collection.count.return_value = 0
+
+    store.add_chunks([Chunk(text="Text.", metadata={})], embeddings=[[0.1, 0.2]])
+
+    collection.modify.assert_called_once_with(
+        metadata={"hnsw:space": "cosine", "embedding_dimension": 2}
+    )
+
+
+def test_query_raises_clear_error_on_embedding_dimension_mismatch() -> None:
+    store, collection = _store_with_fake_collection()
+    collection.metadata = {"hnsw:space": "cosine", "embedding_dimension": 384}
+
+    try:
+        store.query([0.1] * 1536)
+    except ValueError as exc:
+        assert "Embedding dimension mismatch" in str(exc)
+        assert "384" in str(exc)
+        assert "1536" in str(exc)
+    else:
+        raise AssertionError("Expected query() to raise on dimension mismatch")
+
+    collection.query.assert_not_called()
+
+
+def test_query_infers_existing_dimension_when_metadata_missing() -> None:
+    store, collection = _store_with_fake_collection()
+    collection.metadata = {"hnsw:space": "cosine"}
+    collection.count.return_value = 1
+    collection.get.return_value = {"embeddings": [[0.1, 0.2, 0.3]]}
+    collection.query.return_value = {
+        "documents": [["ctx"]],
+        "distances": [[0.2]],
+        "metadatas": [[{"source": "paper.pdf"}]],
+    }
+
+    results = store.query([0.5, 0.6, 0.7])
+
+    assert len(results) == 1
+    collection.query.assert_called_once()

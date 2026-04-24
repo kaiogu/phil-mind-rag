@@ -64,6 +64,7 @@ class ChromaVectorStore(BaseVectorStore):
         )
 
     def add_chunks(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:
+        self._ensure_embedding_dimension(len(embeddings[0]) if embeddings else None)
         ids = [_stable_vector_id(chunk, index) for index, chunk in enumerate(chunks)]
         self._collection.upsert(
             ids=ids,
@@ -74,6 +75,7 @@ class ChromaVectorStore(BaseVectorStore):
         logger.info("Upserted %d chunks to ChromaDB", len(chunks))
 
     def query(self, embedding: list[float], top_k: int = 5) -> list[RetrievalResult]:
+        self._ensure_embedding_dimension(len(embedding))
         results = self._collection.query(
             query_embeddings=[embedding],
             n_results=top_k,
@@ -97,6 +99,46 @@ class ChromaVectorStore(BaseVectorStore):
 
     def count(self) -> int:
         return self._collection.count()
+
+    def _ensure_embedding_dimension(self, actual_dimension: int | None) -> None:
+        """Fail fast when the active embedding model changes vector dimension."""
+        if actual_dimension is None:
+            return
+
+        metadata = self._collection.metadata or {}
+        stored_dimension = metadata.get("embedding_dimension")
+        if isinstance(stored_dimension, (int, float)):
+            expected_dimension = int(stored_dimension)
+        else:
+            expected_dimension = self._existing_embedding_dimension()
+
+        if expected_dimension is None:
+            self._collection.modify(
+                metadata={
+                    **metadata,
+                    "hnsw:space": metadata.get("hnsw:space", "cosine"),
+                    "embedding_dimension": actual_dimension,
+                }
+            )
+            return
+
+        if expected_dimension != actual_dimension:
+            raise ValueError(
+                "Embedding dimension mismatch for Chroma collection. "
+                f"Collection expects {expected_dimension}, but the active "
+                f"embedding backend produced {actual_dimension}. "
+                "Delete the existing Chroma data directory or use a different "
+                "collection name before re-ingesting documents."
+            )
+
+    def _existing_embedding_dimension(self) -> int | None:
+        if self._collection.count() == 0:
+            return None
+        sample = self._collection.get(limit=1, include=["embeddings"])
+        embeddings = sample.get("embeddings")
+        if embeddings is None or len(embeddings) == 0:
+            return None
+        return len(embeddings[0])
 
 
 def _stable_vector_id(chunk: Chunk, index: int) -> str:
