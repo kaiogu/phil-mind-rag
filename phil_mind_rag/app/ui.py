@@ -165,9 +165,22 @@ def create_app() -> gr.Blocks:
 def main() -> None:
     """Entry point for `python -m phil_mind_rag.app.ui`."""
     logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("Starting Philosophy of Mind RAG Gradio app")
     settings = get_settings()
+    logger.info(
+        "Loaded settings: llm_provider=%s embedding_provider=%s port=%s",
+        settings.llm_provider,
+        settings.embedding_provider,
+        settings.gradio_server_port,
+    )
+    logger.info("Creating Gradio Blocks app")
     app = create_app()
-    app.launch(server_port=settings.gradio_server_port)
+    logger.info("Launching Gradio server on 0.0.0.0:%s", settings.gradio_server_port)
+    app.launch(
+        server_name="0.0.0.0",  # noqa: S104 - required for container platforms
+        server_port=settings.gradio_server_port,
+    )
 
 
 if __name__ == "__main__":

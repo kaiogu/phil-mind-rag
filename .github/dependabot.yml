@@ -42,6 +42,7 @@ updates:
           - "openai"
           - "pydantic-settings"
           - "ragas"
+          - "sentence-transformers"
           - "unstructured*"
         update-types:
           - "minor"
@@ -49,6 +50,7 @@ updates:
       dev-tooling-minor-patch:
         patterns:
           - "pytest*"
+          - "pytest-cov"
           - "ruff"
           - "ty"
         update-types:
