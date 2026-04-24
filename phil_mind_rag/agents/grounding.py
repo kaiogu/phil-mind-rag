@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 def run_grounding(
-    state: AgentState, client: OpenAI, model: str
+    state: AgentState, client: OpenAI, model: str | tuple[str, ...]
 ) -> dict[str, SynthesisReport]:
     memos: list[StanceMemo] = [
         m

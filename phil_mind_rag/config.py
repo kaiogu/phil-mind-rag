@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     openrouter_api_key: SecretStr | None = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_chat_model: str = "openrouter/free"
+    openrouter_chat_model_fallbacks: tuple[str, ...] = (
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "mistralai/mistral-7b-instruct:free",
+    )
+    llm_request_timeout_seconds: float = 30.0
 
     # --- OpenAI ---------------------------------------------------------
     openai_embedding_model: str = "text-embedding-3-small"
@@ -49,6 +55,13 @@ class Settings(BaseSettings):
     @field_validator("openrouter_embedding_model_preferences", mode="before")
     @classmethod
     def _parse_embedding_preferences(cls, value: object) -> object:
+        if isinstance(value, str):
+            return tuple(item.strip() for item in value.split(",") if item.strip())
+        return value
+
+    @field_validator("openrouter_chat_model_fallbacks", mode="before")
+    @classmethod
+    def _parse_chat_fallbacks(cls, value: object) -> object:
         if isinstance(value, str):
             return tuple(item.strip() for item in value.split(",") if item.strip())
         return value

@@ -35,7 +35,7 @@ _DUALIST = (
 
 
 def run_materialist(
-    state: AgentState, client: OpenAI, model: str
+    state: AgentState, client: OpenAI, model: str | tuple[str, ...]
 ) -> dict[str, StanceMemo]:
     return _run_stance(
         state=state,
@@ -48,7 +48,7 @@ def run_materialist(
 
 
 def run_idealist(
-    state: AgentState, client: OpenAI, model: str
+    state: AgentState, client: OpenAI, model: str | tuple[str, ...]
 ) -> dict[str, StanceMemo]:
     return _run_stance(
         state=state,
@@ -60,7 +60,11 @@ def run_idealist(
     )
 
 
-def run_dualist(state: AgentState, client: OpenAI, model: str) -> dict[str, StanceMemo]:
+def run_dualist(
+    state: AgentState,
+    client: OpenAI,
+    model: str | tuple[str, ...],
+) -> dict[str, StanceMemo]:
     return _run_stance(
         state=state,
         client=client,
@@ -75,7 +79,7 @@ def _run_stance(
     *,
     state: AgentState,
     client: OpenAI,
-    model: str,
+    model: str | tuple[str, ...],
     stance: StanceName,
     instruction: str,
     result_key: str,

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from phil_mind_rag.agents.argument_map import build_argument_map
 from phil_mind_rag.agents.graph import AnalysisResult, verify_analysis_claims
 from phil_mind_rag.agents.schema import StanceMemo, SynthesisReport
-from phil_mind_rag.providers import generation_model
+from phil_mind_rag.providers import generation_models
 
 if TYPE_CHECKING:
     from phil_mind_rag.config import Settings
@@ -51,7 +51,7 @@ def run_crewai_analysis(
     artifacts = build_crewai_artifacts(
         question=question,
         chunks=chunks,
-        model=generation_model(settings),
+        model=generation_models(settings)[0],
     )
     raw_output = artifacts.crew.kickoff(
         inputs={

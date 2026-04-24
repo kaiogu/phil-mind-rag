@@ -57,9 +57,7 @@ def test_add_chunks_persists_embedding_dimension_metadata_for_new_collection() -
 
     store.add_chunks([Chunk(text="Text.", metadata={})], embeddings=[[0.1, 0.2]])
 
-    collection.modify.assert_called_once_with(
-        metadata={"hnsw:space": "cosine", "embedding_dimension": 2}
-    )
+    collection.modify.assert_called_once_with(metadata={"embedding_dimension": 2})
 
 
 def test_query_raises_clear_error_on_embedding_dimension_mismatch() -> None:

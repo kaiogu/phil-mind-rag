@@ -56,7 +56,7 @@ def generate_eval_set(
     source: str,
     chunks: list[RetrievalResult],
     client: OpenAI,
-    model: str,
+    model: str | tuple[str, ...],
     questions_per_chunk: int = 3,
 ) -> GeneratedEvalSet:
     """Generate a source-grounded eval question set from retrieved chunks."""

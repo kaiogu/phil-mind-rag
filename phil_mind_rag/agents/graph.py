@@ -21,7 +21,7 @@ from phil_mind_rag.agents.evidence import (
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
 from phil_mind_rag.agents.state import AgentState
-from phil_mind_rag.providers import generation_client, generation_model
+from phil_mind_rag.providers import generation_client, generation_models
 
 if TYPE_CHECKING:
     from phil_mind_rag.agents.schema import (
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 def build_graph(pipeline: RAGPipeline, settings: Settings):  # type: ignore[return]
     """Compile and return the LangGraph StateGraph."""
     client = generation_client(settings)
-    model = generation_model(settings)
+    model = generation_models(settings)
 
     def retrieve(state: AgentState) -> dict[str, list[RetrievalResult]]:
         logger.info("Retrieving context for: %s", state["question"][:80])

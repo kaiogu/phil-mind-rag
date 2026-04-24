@@ -27,7 +27,7 @@ from phil_mind_rag.app.formatting import (
     format_verified_claims,
 )
 from phil_mind_rag.app.state import get_pipeline, get_settings
-from phil_mind_rag.providers import generation_client, generation_model
+from phil_mind_rag.providers import generation_client, generation_models
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def handle_discover_sources(
             question=question,
             providers=providers,
             client=client,
-            model=generation_model(settings),
+            model=generation_models(settings),
             search_query=search_query or None,
         )
         return (

@@ -20,7 +20,7 @@ from phil_mind_rag.agents.graph import (
 )
 from phil_mind_rag.agents.grounding import run_grounding
 from phil_mind_rag.agents.stance import run_dualist, run_idealist, run_materialist
-from phil_mind_rag.providers import generation_client, generation_model
+from phil_mind_rag.providers import generation_client, generation_models
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -110,7 +110,7 @@ def run_plain_analysis(
 ) -> AnalysisResult:
     """Run the multi-agent analysis using plain Python orchestration."""
     client = generation_client(settings)
-    model = generation_model(settings)
+    model = generation_models(settings)
 
     logger.info("Retrieving context for: %s", question[:80])
     evidence_sets = retrieve_stance_evidence(question, pipeline)
@@ -128,7 +128,9 @@ def run_plain_analysis(
     }
 
     logger.info("Running stance agents in parallel with plain orchestration")
-    stance_fns: list[Callable[[AgentState, Any, str], dict[str, StanceMemo]]] = [
+    stance_fns: list[
+        Callable[[AgentState, Any, str | tuple[str, ...]], dict[str, StanceMemo]]
+    ] = [
         run_materialist,
         run_idealist,
         run_dualist,

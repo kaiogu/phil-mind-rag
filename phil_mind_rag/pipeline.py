@@ -18,7 +18,7 @@ from phil_mind_rag.ingestion.metadata_extractor import (
 )
 from phil_mind_rag.ingestion.parser import ParsedDocument, UnstructuredPDFParser
 from phil_mind_rag.ingestion.registry import DocumentRecord, DocumentRegistry
-from phil_mind_rag.providers import generation_client, generation_model
+from phil_mind_rag.providers import generation_client, generation_models
 from phil_mind_rag.retrieval.embeddings import BaseEmbedder, build_embedder
 from phil_mind_rag.retrieval.retriever import VectorRetriever
 from phil_mind_rag.retrieval.store import ChromaVectorStore, RetrievalResult
@@ -60,7 +60,7 @@ class RAGPipeline:
         chat_client = generation_client(settings)
         self._llm = OpenAILLM(
             client=chat_client,
-            model=generation_model(settings),
+            model=generation_models(settings),
         )
         self._prompt = RAGPrompt()
         self._metadata_extractor = MetadataExtractor(llm=self._llm)

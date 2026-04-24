@@ -42,7 +42,7 @@ def suggest_sources(
     question: str,
     candidates: list[SourceCandidate],
     client: OpenAI,
-    model: str,
+    model: str | tuple[str, ...],
     search_query: str | None = None,
 ) -> SourceDiscoveryReport:
     """Rank candidate sources for a field/question pair with structured output."""
@@ -76,7 +76,7 @@ def discover_sources(
     question: str,
     providers: list[SourceSearchProvider],
     client: OpenAI,
-    model: str,
+    model: str | tuple[str, ...],
     search_query: str | None = None,
     per_provider_limit: int = 5,
 ) -> SourceDiscoveryReport:
@@ -164,7 +164,7 @@ def suggest_papers(
     question: str,
     candidates: list[PaperCandidate],
     client: OpenAI,
-    model: str,
+    model: str | tuple[str, ...],
     search_query: str | None = None,
 ) -> PaperDiscoveryReport:
     """Backward-compatible wrapper around generic source suggestion."""

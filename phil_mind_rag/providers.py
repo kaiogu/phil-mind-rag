@@ -19,10 +19,14 @@ def generation_client(settings: Settings) -> OpenAI:
         return OpenAI(
             api_key=api_key,
             base_url=settings.openrouter_base_url,
+            timeout=settings.llm_request_timeout_seconds,
         )
 
     api_key = _secret_value(settings.openai_api_key, "OPENAI_API_KEY")
-    return OpenAI(api_key=api_key)
+    return OpenAI(
+        api_key=api_key,
+        timeout=settings.llm_request_timeout_seconds,
+    )
 
 
 def generation_model(settings: Settings) -> str:
@@ -32,11 +36,34 @@ def generation_model(settings: Settings) -> str:
     return settings.openai_chat_model
 
 
+def generation_models(settings: Settings) -> tuple[str, ...]:
+    """Return the ordered chat-model fallback list for the selected provider."""
+    if settings.llm_provider != "openrouter":
+        return (settings.openai_chat_model,)
+
+    ordered = [
+        settings.openrouter_chat_model,
+        *settings.openrouter_chat_model_fallbacks,
+    ]
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for model in ordered:
+        normalized = model.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(normalized)
+    return tuple(deduped)
+
+
 def openai_web_search_client(settings: Settings) -> OpenAI | None:
     """Return an OpenAI client for web search, if configured."""
     if settings.openai_api_key is None:
         return None
-    return OpenAI(api_key=settings.openai_api_key.get_secret_value())
+    return OpenAI(
+        api_key=settings.openai_api_key.get_secret_value(),
+        timeout=settings.llm_request_timeout_seconds,
+    )
 
 
 def _secret_value(secret: SecretStr | None, env_var: str) -> str:

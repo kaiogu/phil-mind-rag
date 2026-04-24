@@ -113,13 +113,13 @@ class ChromaVectorStore(BaseVectorStore):
             expected_dimension = self._existing_embedding_dimension()
 
         if expected_dimension is None:
-            self._collection.modify(
-                metadata={
-                    **metadata,
-                    "hnsw:space": metadata.get("hnsw:space", "cosine"),
-                    "embedding_dimension": actual_dimension,
-                }
-            )
+            updated_metadata = {
+                key: value
+                for key, value in metadata.items()
+                if not str(key).startswith("hnsw:")
+            }
+            updated_metadata["embedding_dimension"] = actual_dimension
+            self._collection.modify(metadata=updated_metadata)
             return
 
         if expected_dimension != actual_dimension:
