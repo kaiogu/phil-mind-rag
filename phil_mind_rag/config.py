@@ -1,9 +1,11 @@
 """Application configuration — loaded from environment variables / .env file."""
 
-from pathlib import Path
-from typing import Literal
+from __future__ import annotations
 
-from pydantic import SecretStr, field_validator
+from pathlib import Path
+from typing import Any, Literal, Self, cast
+
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -19,7 +21,7 @@ class Settings(BaseSettings):
     )
 
     # --- Generation -----------------------------------------------------
-    llm_provider: Literal["openai", "openrouter"] = "openai"
+    llm_provider: Literal["openai", "openrouter"]
     openai_api_key: SecretStr | None = None
     openai_chat_model: str = "gpt-5-mini"
     openrouter_api_key: SecretStr | None = None
@@ -34,7 +36,7 @@ class Settings(BaseSettings):
     # --- Embeddings -----------------------------------------------------
     embedding_provider: Literal[
         "openai", "sentence_transformers", "openrouter_free_auto"
-    ] = "openai"
+    ]
     sentence_transformers_embedding_model: str = (
         "sentence-transformers/all-MiniLM-L6-v2"
     )
@@ -50,6 +52,28 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return tuple(item.strip() for item in value.split(",") if item.strip())
         return value
+
+    @model_validator(mode="after")
+    def _validate_provider_secrets(self) -> Self:
+        if self.llm_provider == "openai" and self.openai_api_key is None:
+            raise ValueError("OPENAI_API_KEY must be set when LLM_PROVIDER=openai")
+        if self.llm_provider == "openrouter" and self.openrouter_api_key is None:
+            raise ValueError(
+                "OPENROUTER_API_KEY must be set when LLM_PROVIDER=openrouter"
+            )
+        if self.embedding_provider == "openai" and self.openai_api_key is None:
+            raise ValueError(
+                "OPENAI_API_KEY must be set when EMBEDDING_PROVIDER=openai"
+            )
+        if (
+            self.embedding_provider == "openrouter_free_auto"
+            and self.openrouter_api_key is None
+        ):
+            raise ValueError(
+                "OPENROUTER_API_KEY must be set when "
+                "EMBEDDING_PROVIDER=openrouter_free_auto"
+            )
+        return self
 
     # --- ChromaDB -------------------------------------------------------
     chroma_persist_dir: Path = _PROJECT_ROOT / "data" / "chroma"
@@ -72,4 +96,5 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Return a cached settings instance."""
-    return Settings()
+    settings_cls = cast("Any", Settings)
+    return settings_cls()
