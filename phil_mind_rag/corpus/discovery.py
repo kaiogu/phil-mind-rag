@@ -12,6 +12,7 @@ from phil_mind_rag.agents.schema import (
     PaperRecommendation,
     SourceCandidate,
     SourceDiscoveryReport,
+    SourceRecommendation,
 )
 from phil_mind_rag.corpus.formatting import format_candidates
 
@@ -113,13 +114,47 @@ def discover_sources(
             )
         raise ValueError("providers returned no candidates")
 
-    return suggest_sources(
+    try:
+        report = suggest_sources(
+            field=field,
+            question=question,
+            candidates=merged,
+            client=client,
+            model=model,
+            search_query=query,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Structured source ranking failed; using fallback: %s", exc)
+        return _fallback_source_report(
+            field=field,
+            question=question,
+            search_query=query,
+            candidates=merged,
+            provider_errors=provider_errors,
+            reason=f"Model ranking failed: {exc}",
+        )
+
+    if report.recommendations:
+        if provider_errors:
+            report.gaps_or_followups.extend(
+                [
+                    f"Provider warning: {error}"
+                    for error in provider_errors
+                    if f"Provider warning: {error}" not in report.gaps_or_followups
+                ]
+            )
+        return report
+
+    logger.warning(
+        "Structured source ranking returned no recommendations; using fallback"
+    )
+    return _fallback_source_report(
         field=field,
         question=question,
-        candidates=merged,
-        client=client,
-        model=model,
         search_query=query,
+        candidates=merged,
+        provider_errors=provider_errors,
+        reason="Model ranking returned no recommendations.",
     )
 
 
@@ -183,3 +218,82 @@ def suggest_papers(
 def _candidate_key(candidate: SourceCandidate) -> str:
     first_author = candidate.authors[0].strip().lower() if candidate.authors else ""
     return f"{candidate.title.strip().lower()}::{first_author}"
+
+
+def _fallback_source_report(
+    *,
+    field: str,
+    question: str,
+    search_query: str,
+    candidates: list[SourceCandidate],
+    provider_errors: list[str],
+    reason: str,
+) -> SourceDiscoveryReport:
+    recommendations = [
+        _candidate_to_recommendation(candidate, priority=index)
+        for index, candidate in enumerate(
+            sorted(candidates, key=_candidate_priority_key)[:5], start=1
+        )
+    ]
+    followups = [reason]
+    followups.extend(f"Provider warning: {error}" for error in provider_errors)
+    return SourceDiscoveryReport(
+        field=field,
+        question=question,
+        search_query=search_query,
+        recommendations=recommendations,
+        gaps_or_followups=followups,
+    )
+
+
+def _candidate_to_recommendation(
+    candidate: SourceCandidate, *, priority: int
+) -> SourceRecommendation:
+    authors = (
+        ", ".join(candidate.authors[:2]) if candidate.authors else "Unknown author"
+    )
+    rationale_bits = [
+        f"Selected from provider results for {candidate.source_type} coverage."
+    ]
+    if candidate.citation_count:
+        rationale_bits.append(f"Reported citations: {candidate.citation_count}.")
+    if candidate.access_status == "open":
+        rationale_bits.append("Open access makes acquisition straightforward.")
+    elif candidate.access_note:
+        rationale_bits.append(candidate.access_note)
+
+    return SourceRecommendation(
+        title=candidate.title,
+        source_type=candidate.source_type,
+        rationale=" ".join(rationale_bits),
+        priority=min(priority, 5),
+        relevance_to_question=(
+            candidate.abstract[:180]
+            if candidate.abstract
+            else "Relevant candidate from search results."
+        ),
+        suggested_use=(
+            f"Review {candidate.source_type} by {authors} "
+            "for corpus coverage and grounding."
+        ),
+        doi=candidate.doi,
+        source_url=candidate.source_url,
+        download_url=candidate.download_url,
+        access_status=candidate.access_status,
+        acquisition_note=candidate.access_note,
+    )
+
+
+def _candidate_priority_key(
+    candidate: SourceCandidate,
+) -> tuple[int, int, int, str]:
+    type_rank = {
+        "paper": 0,
+        "book": 1,
+        "article": 2,
+        "blog": 3,
+        "video": 4,
+    }.get(candidate.source_type, 5)
+    citation_rank = -(candidate.citation_count or 0)
+    access_rank = 0 if candidate.access_status == "open" else 1
+    return (type_rank, access_rank, citation_rank, candidate.title.lower())

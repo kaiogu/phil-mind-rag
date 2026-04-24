@@ -277,10 +277,80 @@ def test_discover_sources_skips_failed_provider_when_others_return_results() -> 
             model="gpt-5-mini",
         )
 
-    assert result == _source_report()
+    assert result.recommendations == _source_report().recommendations
+    assert "Provider warning: _BrokenProvider: rate limited" in result.gaps_or_followups
     assert [c.title for c in mocked.call_args.kwargs["candidates"]] == [
         "Working Source"
     ]
+
+
+def test_discover_sources_falls_back_when_model_returns_no_recommendations() -> None:
+    class _WorkingProvider:
+        def search(self, query: str, limit: int = 5) -> list[SourceCandidate]:
+            return [
+                _source_candidate(
+                    "Open Paper",
+                    download_url="https://example.com/open.pdf",
+                    access_status="open",
+                ),
+                _source_candidate(
+                    "Closed Book",
+                    source_type="book",
+                    download_url=None,
+                    access_status="copyrighted",
+                    access_note="No lawful downloadable copy was available.",
+                ),
+            ]
+
+    with patch(
+        "phil_mind_rag.corpus.discovery.suggest_sources",
+        return_value=SourceDiscoveryReport(
+            field="philosophy of mind",
+            question="hard problem",
+            search_query="hard problem",
+            recommendations=[],
+            gaps_or_followups=[],
+        ),
+    ):
+        result = discover_sources(
+            field="philosophy of mind",
+            question="hard problem",
+            providers=[_WorkingProvider()],
+            client=MagicMock(),
+            model="gpt-5-mini",
+        )
+
+    assert [item.title for item in result.recommendations] == [
+        "Open Paper",
+        "Closed Book",
+    ]
+    assert "Model ranking returned no recommendations." in result.gaps_or_followups
+
+
+def test_discover_sources_falls_back_when_model_ranking_raises() -> None:
+    class _BrokenProvider:
+        def search(self, query: str, limit: int = 5) -> list[SourceCandidate]:
+            raise RuntimeError("rate limited")
+
+    class _WorkingProvider:
+        def search(self, query: str, limit: int = 5) -> list[SourceCandidate]:
+            return [_source_candidate("Working Source")]
+
+    with patch(
+        "phil_mind_rag.corpus.discovery.suggest_sources",
+        side_effect=RuntimeError("schema parse failed"),
+    ):
+        result = discover_sources(
+            field="philosophy of mind",
+            question="hard problem",
+            providers=[_BrokenProvider(), _WorkingProvider()],
+            client=MagicMock(),
+            model="gpt-5-mini",
+        )
+
+    assert [item.title for item in result.recommendations] == ["Working Source"]
+    assert "Model ranking failed: schema parse failed" in result.gaps_or_followups
+    assert "Provider warning: _BrokenProvider: rate limited" in result.gaps_or_followups
 
 
 def test_discover_sources_reports_provider_errors_when_all_fail() -> None:
