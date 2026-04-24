@@ -490,6 +490,7 @@ def test_create_app_builds_expected_tabs() -> None:
     app = create_app()
 
     assert app.title == "Philosophy of Mind — Multi-Agent RAG"
+    assert app.enable_queue is True
     config = app.config
     labels = [
         component.get("props", {}).get("label") for component in config["components"]
@@ -510,3 +511,9 @@ def test_create_app_builds_expected_tabs() -> None:
     assert any(
         isinstance(value, str) and "Manual PDF Upload" in value for value in values
     )
+
+
+def test_create_app_enables_queue_in_config() -> None:
+    app = create_app()
+
+    assert app.config["enable_queue"] is True

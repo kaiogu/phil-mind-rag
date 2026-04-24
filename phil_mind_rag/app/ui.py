@@ -159,6 +159,7 @@ def create_app() -> gr.Blocks:
             )
             refresh_btn.click(fn=handle_refresh, inputs=None, outputs=library_table)
 
+    app.queue(default_concurrency_limit=2)
     return app
 
 
@@ -180,6 +181,7 @@ def main() -> None:
     app.launch(
         server_name="0.0.0.0",  # noqa: S104 - required for container platforms
         server_port=settings.gradio_server_port,
+        show_error=True,
     )
 
 
