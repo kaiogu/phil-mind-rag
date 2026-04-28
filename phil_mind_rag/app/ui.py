@@ -72,9 +72,18 @@ def create_app() -> gr.Blocks:
 
         with gr.Tab("Add Sources"):
             gr.Markdown("### Discover Sources")
+            gr.Markdown(
+                "Use **Field** for the broad domain and **Discovery Question** "
+                "for the specific thing you want sources about. In most cases, "
+                "you can leave the search query override blank."
+            )
             field_input = gr.Textbox(
                 label="Field",
                 placeholder="e.g. philosophy of mind",
+                info=(
+                    "Broad topic area used to frame source ranking. "
+                    "Example: philosophy of mind."
+                ),
                 value="",
             )
             discovery_question_input = gr.Textbox(
@@ -83,13 +92,25 @@ def create_app() -> gr.Blocks:
                     "e.g. What are the most important sources on the hard "
                     "problem of consciousness?"
                 ),
+                info=(
+                    "Your actual research goal. This becomes the default "
+                    "search input if you do not provide an advanced query."
+                ),
                 lines=2,
             )
-            search_query_input = gr.Textbox(
-                label="Search Query (optional)",
-                placeholder="e.g. hard problem consciousness seminal papers books",
-                value="",
-            )
+            with gr.Accordion("Advanced Search Options", open=False):
+                search_query_input = gr.Textbox(
+                    label="Search Query Override (optional)",
+                    placeholder=(
+                        "e.g. hard problem consciousness seminal papers books"
+                    ),
+                    info=(
+                        "Optional keyword-style override sent to search providers. "
+                        "Use this only when you want provider search terms to "
+                        "differ from the discovery question."
+                    ),
+                    value="",
+                )
             discover_btn = gr.Button("Discover Sources", variant="primary")
             discovery_output = gr.Markdown(label="Discovery Results")
             discovered_sources_state = gr.State(value=[])

@@ -505,11 +505,18 @@ def test_create_app_builds_expected_tabs() -> None:
     assert "Discovery Results" in labels
     assert "Acquisition Status" in labels
     assert "Upload Status" in labels
+    assert "Field" in labels
+    assert "Discovery Question" in labels
+    assert "Search Query Override (optional)" in labels
     assert any(
         isinstance(value, str) and "Single-Agent Baseline" in value for value in values
     )
     assert any(
         isinstance(value, str) and "Manual PDF Upload" in value for value in values
+    )
+    assert any(
+        isinstance(value, str) and "leave the search query override blank" in value
+        for value in values
     )
 
 
