@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as _html
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -147,6 +148,109 @@ def format_map_claim(claim: ArgumentMapClaim) -> str:
         support = "not adjudicated"
     note = f" — {claim.note}" if claim.note else ""
     return f"{claim.text} _[{citations}; {support}]_{note}"
+
+
+_STANCE_COLORS: dict[str, tuple[str, str]] = {
+    "materialist": ("#4a90d9", "#e8f1fb"),
+    "idealist": ("#7b61ff", "#f0edff"),
+    "dualist": ("#00897b", "#e0f4f1"),
+}
+_DEFAULT_STANCE_COLOR: tuple[str, str] = ("#6b7280", "#f3f4f6")
+
+
+def _claim_chip_html(claim: ArgumentMapClaim) -> str:
+    citations = ", ".join(claim.citations) if claim.citations else "none"
+    if claim.supported is True:
+        badge_color, symbol, bg = "#4caf50", "✓", "#f0fdf4"
+    elif claim.supported is False:
+        badge_color, symbol, bg = "#f59e0b", "⚠", "#fffbeb"
+    else:
+        badge_color, symbol, bg = "#9e9e9e", "–", "#f9fafb"
+    note_html = (
+        f'<span style="color:#666;font-size:0.82em">'
+        f" — {_html.escape(claim.note)}</span>"
+        if claim.note
+        else ""
+    )
+    return (
+        f'<div style="background:{bg};border-left:3px solid {badge_color};'
+        f'border-radius:4px;padding:5px 8px;margin:4px 0;font-size:0.88em">'
+        f"{_html.escape(claim.text)}"
+        f'<span style="color:#666;font-size:0.82em"> [{_html.escape(citations)}]</span>'
+        f'<span style="background:{badge_color};color:white;border-radius:3px;'
+        f'padding:1px 5px;font-size:0.8em;margin-left:4px">{symbol}</span>'
+        f"{note_html}</div>"
+    )
+
+
+def format_argument_map_html(argument_map: ArgumentMap | None) -> str:
+    if argument_map is None:
+        return "<p><em>No argument map was produced.</em></p>"
+
+    axes_html = "".join(
+        f'<span style="background:#f0f0f0;border-radius:4px;padding:2px 8px;'
+        f'margin:2px;display:inline-block;font-size:0.9em">'
+        f"{_html.escape(a)}</span>"
+        for a in argument_map.disagreement_axes
+    )
+
+    cards_html = ""
+    for stance_data in argument_map.stances:
+        border, bg = _STANCE_COLORS.get(
+            stance_data.stance.lower(), _DEFAULT_STANCE_COLOR
+        )
+        strongest_html = (
+            f'<p style="font-size:0.85em;color:#555;margin:4px 0 8px">'
+            f"<b>Strongest argument:</b> "
+            f"{_html.escape(stance_data.strongest_argument)}</p>"
+            if stance_data.strongest_argument
+            else ""
+        )
+        supporting_html = (
+            "".join(_claim_chip_html(c) for c in stance_data.supporting_claims)
+            or "<p style='color:#aaa;font-size:0.85em'>No supporting claims.</p>"
+        )
+        objections_html = (
+            "".join(_claim_chip_html(c) for c in stance_data.objections)
+            or "<p style='color:#aaa;font-size:0.85em'>No objections recorded.</p>"
+        )
+
+        cards_html += (
+            f'<div style="border:2px solid {border};border-radius:8px;'
+            f'padding:12px;background:{bg}">'
+            f'<b style="color:{border};font-size:1.05em">'
+            f"{_html.escape(stance_data.stance.capitalize())}</b>"
+            f'<p style="font-style:italic;font-size:0.9em;margin:6px 0">'
+            f"{_html.escape(stance_data.thesis)}</p>"
+            f"{strongest_html}"
+            f'<p style="font-size:0.85em;font-weight:bold;margin:8px 0 4px">'
+            f"Supporting Claims</p>"
+            f"{supporting_html}"
+            f'<p style="font-size:0.85em;font-weight:bold;margin:8px 0 4px">'
+            f"Objections to Rivals</p>"
+            f"{objections_html}"
+            f"</div>"
+        )
+
+    decisive_html = (
+        f'<p style="font-size:0.85em;color:#555;margin-top:8px">'
+        f"<b>Decisive evidence:</b> "
+        f"{_html.escape(', '.join(argument_map.decisive_chunks))}</p>"
+        if argument_map.decisive_chunks
+        else ""
+    )
+
+    return (
+        f'<div style="font-family:sans-serif;max-width:960px;padding:8px">'
+        f'<div style="margin-bottom:12px">'
+        f"<b>Areas of disagreement:</b> {axes_html}</div>"
+        f'<div style="display:grid;grid-template-columns:'
+        f'repeat(auto-fit,minmax(260px,1fr));gap:12px">'
+        f"{cards_html}</div>"
+        f'<div style="margin-top:14px;border-top:1px solid #e0e0e0;padding-top:10px">'
+        f"<b>Synthesis:</b> {_html.escape(argument_map.synthesis)}</div>"
+        f"{decisive_html}</div>"
+    )
 
 
 def format_sources(chunks: list[RetrievalResult]) -> str:

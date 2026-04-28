@@ -18,7 +18,7 @@ from phil_mind_rag.agents.source_search import (
 )
 from phil_mind_rag.app.formatting import (
     format_acquisition_results,
-    format_argument_map,
+    format_argument_map_html,
     format_discovery_report,
     format_grounding,
     format_sources,
@@ -32,17 +32,18 @@ from phil_mind_rag.providers import generation_client, generation_models
 logger = logging.getLogger(__name__)
 
 type DeepResearchOutputs = tuple[
-    str,
-    str,
-    str,
-    str,
-    str,
-    str,
-    str,
-    str,
-    str,
-    str,
-    str,
+    str,  # status
+    str,  # discovery
+    str,  # acquisition
+    str,  # provenance
+    str,  # baseline
+    str,  # materialist
+    str,  # idealist
+    str,  # dualist
+    str,  # grounding
+    str,  # synthesis
+    str,  # sources
+    str,  # argument_map (HTML)
 ]
 
 
@@ -381,13 +382,9 @@ def handle_deep_research(
                     format_verified_claims(result.verified_claims),
                 ]
             ),
-            synthesis="\n\n".join(
-                [
-                    format_synthesis(result.report),
-                    format_argument_map(result.argument_map),
-                ]
-            ),
+            synthesis=format_synthesis(result.report),
             sources=format_sources(result.chunks),
+            argument_map=format_argument_map_html(result.argument_map),
         )
     except ValueError as exc:
         error = f"Input error: {exc}"
@@ -430,15 +427,16 @@ def handle_deep_research(
 
 def handle_analysis(
     question: str,
-) -> tuple[str, str, str, str, str, str, str]:
+) -> tuple[str, str, str, str, str, str, str, str]:
     """Run multi-agent analysis.
 
     Returns
-    (baseline, materialist, idealist, dualist, grounding, synthesis, sources).
+    (baseline, materialist, idealist, dualist, grounding, synthesis, sources,
+    argument_map_html).
     """
     if not question.strip():
         empty = "Please enter a question."
-        return empty, empty, empty, empty, empty, empty, ""
+        return empty, empty, empty, empty, empty, empty, "", ""
 
     try:
         pipeline = get_pipeline()
@@ -455,21 +453,17 @@ def handle_analysis(
                     format_verified_claims(result.verified_claims),
                 ]
             ),
-            "\n\n".join(
-                [
-                    format_synthesis(result.report),
-                    format_argument_map(result.argument_map),
-                ]
-            ),
+            format_synthesis(result.report),
             format_sources(result.chunks),
+            format_argument_map_html(result.argument_map),
         )
     except ValueError as exc:
         err = f"Input error: {exc}"
-        return err, err, err, err, err, err, ""
+        return err, err, err, err, err, err, "", ""
     except Exception:
         logger.exception("Analysis failed")
         err = "An unexpected error occurred during analysis."
-        return err, err, err, err, err, err, ""
+        return err, err, err, err, err, err, "", ""
 
 
 def _deep_research_snapshot(
@@ -485,6 +479,7 @@ def _deep_research_snapshot(
     grounding: str = "",
     synthesis: str = "",
     sources: str = "",
+    argument_map: str = "",
 ) -> DeepResearchOutputs:
     return (
         status,
@@ -498,6 +493,7 @@ def _deep_research_snapshot(
         grounding,
         synthesis,
         sources,
+        argument_map,
     )
 
 

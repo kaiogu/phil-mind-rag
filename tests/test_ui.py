@@ -177,9 +177,16 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
         patch("phil_mind_rag.app.callbacks.get_settings"),
         patch("phil_mind_rag.app.callbacks.run_analysis", return_value=result),
     ):
-        baseline, materialist, idealist, dualist, grounding, synthesis, sources = (
-            handle_analysis("What is consciousness?")
-        )
+        (
+            baseline,
+            materialist,
+            idealist,
+            dualist,
+            grounding,
+            synthesis,
+            sources,
+            argument_map,
+        ) = handle_analysis("What is consciousness?")
 
     assert baseline == "Baseline answer"
     assert "materialist support" in materialist
@@ -190,9 +197,10 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
     assert "Claim Verification Audit" in grounding
     assert "Materialism has empirical support." in grounding
     assert "Decisive Evidence" in synthesis
-    assert "Argument Map" in synthesis
-    assert "Materialist Position" in synthesis
     assert "chunk_0" in sources
+    assert "Materialist" in argument_map
+    assert "reduction" in argument_map
+    assert "Neural evidence is strong." in argument_map
 
 
 def test_handle_analysis_rejects_blank_question() -> None:
@@ -204,6 +212,7 @@ def test_handle_analysis_rejects_blank_question() -> None:
         "Please enter a question.",
         "Please enter a question.",
         "Please enter a question.",
+        "",
         "",
     )
 
@@ -226,6 +235,7 @@ def test_handle_analysis_returns_input_error() -> None:
         "Input error: bad question",
         "Input error: bad question",
         "Input error: bad question",
+        "",
         "",
     )
 

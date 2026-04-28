@@ -82,6 +82,9 @@ def create_app() -> gr.Blocks:
             gr.Markdown("### Sources")
             deep_sources_output = gr.Markdown(label="Sources")
 
+            gr.Markdown("### Argument Map")
+            deep_argument_map_output = gr.HTML(label="Argument Map")
+
             deep_research_btn.click(
                 fn=handle_deep_research,
                 inputs=[
@@ -101,6 +104,7 @@ def create_app() -> gr.Blocks:
                     deep_grounding_output,
                     deep_synthesis_output,
                     deep_sources_output,
+                    deep_argument_map_output,
                 ],
             )
 
@@ -133,6 +137,9 @@ def create_app() -> gr.Blocks:
             gr.Markdown("### Sources")
             sources_output = gr.Markdown(label="Sources")
 
+            gr.Markdown("### Argument Map")
+            argument_map_output = gr.HTML(label="Argument Map")
+
             ask_btn.click(
                 fn=handle_analysis,
                 inputs=question_input,
@@ -144,6 +151,7 @@ def create_app() -> gr.Blocks:
                     grounding_output,
                     synthesis_output,
                     sources_output,
+                    argument_map_output,
                 ],
             )
 
