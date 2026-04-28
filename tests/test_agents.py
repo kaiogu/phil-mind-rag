@@ -407,6 +407,9 @@ class TestPrompts:
         )
         assert "What is qualia?" in user
         assert "materialist" in system.lower()
+        assert "Use only the retrieved evidence" in system
+        assert "<question>" in user
+        assert "<retrieved_evidence>" in user
 
     def test_stance_prompt_contains_chunk_ids(
         self, sample_chunks: list[RetrievalResult]
@@ -443,9 +446,11 @@ class TestPrompts:
         sample_chunks: list[RetrievalResult],
         stub_memo: StanceMemo,
     ) -> None:
-        _, user = grounding_prompt("Q?", sample_chunks, [stub_memo])
+        system, user = grounding_prompt("Q?", sample_chunks, [stub_memo])
         assert "MATERIALIST" in user
         assert stub_memo.thesis in user
+        assert "Prefer marking a claim unsupported over guessing." in system
+        assert "<stance_memos>" in user
 
     def test_grounding_prompt_contains_chunks(
         self,

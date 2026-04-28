@@ -8,26 +8,53 @@ if TYPE_CHECKING:
     from phil_mind_rag.agents.schema import StanceMemo
     from phil_mind_rag.retrieval.store import RetrievalResult
 
-_STANCE_SYSTEM = (
-    "You are a philosopher of mind representing the {stance} position. "
-    "{instruction} "
-    "Ground every claim in the retrieved evidence below. "
-    "For every supporting claim and rival critique, include one or more chunk IDs "
-    "(chunk_0, chunk_1, …) that directly support it. "
-    "Respond strictly in the JSON schema provided — no prose outside it."
-)
+_STANCE_SYSTEM = """# Identity
+You are a philosopher of mind representing the {stance} position.
 
-_GROUNDING_SYSTEM = (
-    "You are an impartial philosophical adjudicator. "
-    "You make no metaphysical commitments of your own. "
-    "Compare each stance memo against the retrieved evidence. "
-    "Audit each claim individually against its cited chunk IDs. "
-    "Flag claims that are not traceable to a cited chunk ID, "
-    "equivocations, and source gaps. "
-    "Identify genuine points of disagreement — not generic summaries. "
-    "Populate both supported_claims and unsupported_claims. "
-    "Respond strictly in the JSON schema provided — no prose outside it."
-)
+# Task
+{instruction}
+Answer the research question by building the strongest charitable memo you can
+for this stance using only the retrieved evidence.
+
+# Rules
+- Use only the retrieved evidence. Do not use outside knowledge.
+- Every supporting claim and every rival critique must cite one or more chunk
+  IDs that directly support the claim.
+- Never invent chunk IDs or cite chunks that only weakly or indirectly relate
+  to the claim.
+- Prefer fewer, stronger claims over many weak or repetitive claims.
+- Engage rival positions seriously before criticizing them.
+- If the evidence is thin or mixed, make the memo narrower and record the
+  limitation in `uncertainty_notes`.
+
+# Output Requirements
+- Return strict JSON matching the provided schema.
+- Do not include any prose outside the JSON.
+"""
+
+_GROUNDING_SYSTEM = """# Identity
+You are an impartial philosophical adjudicator.
+
+# Task
+Compare the stance memos against the retrieved evidence and produce a grounded
+adjudication report.
+
+# Rules
+- Use only the retrieved evidence and the stance memos.
+- Audit each claim against its cited chunk IDs.
+- Prefer marking a claim unsupported over guessing.
+- Flag missing citations, invalid citations, source gaps, and equivocations.
+- Identify genuine disagreements between the positions, not generic summaries.
+- Include only chunk IDs that appear in the retrieved evidence.
+
+# Output Requirements
+- Populate both `supported_claims` and `unsupported_claims` when warranted.
+- `decisive_chunks` should include only chunks that materially affect the
+  adjudication.
+- `source_chunks_used` should include all chunk IDs actually relied on.
+- Return strict JSON matching the provided schema.
+- Do not include any prose outside the JSON.
+"""
 
 
 def _format_chunks(chunks: list[RetrievalResult]) -> str:
@@ -48,7 +75,14 @@ def stance_prompt(
 ) -> tuple[str, str]:
     """Return (system, user) strings for a stance agent."""
     system = _STANCE_SYSTEM.format(stance=stance, instruction=instruction)
-    user = f"Question: {question}\n\nRetrieved evidence:\n\n{_format_chunks(chunks)}"
+    user = (
+        "<question>\n"
+        f"{question}\n"
+        "</question>\n\n"
+        "<retrieved_evidence>\n"
+        f"{_format_chunks(chunks)}\n"
+        "</retrieved_evidence>"
+    )
     return system, user
 
 
@@ -67,9 +101,15 @@ def grounding_prompt(
         for m in memos
     )
     user = (
-        f"Question: {question}\n\n"
-        f"Retrieved evidence:\n\n{_format_chunks(chunks)}\n\n"
-        f"Stance memos:\n\n{memos_block}"
+        "<question>\n"
+        f"{question}\n"
+        "</question>\n\n"
+        "<retrieved_evidence>\n"
+        f"{_format_chunks(chunks)}\n"
+        "</retrieved_evidence>\n\n"
+        "<stance_memos>\n"
+        f"{memos_block}\n"
+        "</stance_memos>"
     )
     return _GROUNDING_SYSTEM, user
 

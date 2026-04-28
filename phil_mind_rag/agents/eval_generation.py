@@ -19,14 +19,25 @@ EvalQuestionType = Literal[
     "grounding_fidelity",
 ]
 
-_EVAL_GENERATION_SYSTEM = (
-    "You are an eval designer for a philosophy-of-mind RAG system. "
-    "Generate evaluation questions only from the supplied source chunks. "
-    "Every question must be pinned to exactly one provided chunk ID. "
-    "Do not use outside knowledge or free-floating philosophical priors. "
-    "Prefer questions that test retrieval, traceability, and argument structure. "
-    "Return strict JSON matching the provided schema."
-)
+_EVAL_GENERATION_SYSTEM = """# Identity
+You are an eval designer for a philosophy-of-mind RAG system.
+
+# Task
+Generate source-grounded evaluation questions from the supplied chunks.
+
+# Rules
+- Use only the supplied chunks. Do not use outside knowledge.
+- Every generated question must be pinned to exactly one provided chunk ID.
+- The reference answer and source excerpt must be directly recoverable from the
+  cited chunk.
+- Prefer questions that test retrieval, traceability, and argument structure.
+- Do not force an interpretation the chunk cannot support; if a chunk is narrow,
+  generate narrower questions.
+
+# Output Requirements
+- Return strict JSON matching the provided schema.
+- Do not include prose outside the JSON.
+"""
 
 
 class GeneratedEvalQuestion(BaseModel):
@@ -70,19 +81,27 @@ def generate_eval_set(
         raise ValueError("questions_per_chunk must be at least 1")
 
     user = (
-        f"Field: {field.strip()}\n"
-        f"Source: {source.strip()}\n"
-        f"Questions per chunk: {questions_per_chunk}\n\n"
-        "Required question types:\n"
+        "<field>\n"
+        f"{field.strip()}\n"
+        "</field>\n\n"
+        "<source>\n"
+        f"{source.strip()}\n"
+        "</source>\n\n"
+        "<questions_per_chunk>\n"
+        f"{questions_per_chunk}\n"
+        "</questions_per_chunk>\n\n"
+        "<question_types>\n"
         "- factual_retrieval: asks for information directly recoverable from "
         "the source chunk.\n"
         "- stance_divergence: asks a question where materialist, idealist, "
         "and dualist interpretations should diverge, based on the chunk's "
         "actual argument structure.\n"
         "- grounding_fidelity: asks a probe with a known source passage so "
-        "claim traceability can be checked mechanically.\n\n"
-        "Source chunks:\n\n"
-        f"{_format_eval_chunks(chunks)}"
+        "claim traceability can be checked mechanically.\n"
+        "</question_types>\n\n"
+        "<source_chunks>\n"
+        f"{_format_eval_chunks(chunks)}\n"
+        "</source_chunks>"
     )
     eval_set = generate_structured(
         client=client,

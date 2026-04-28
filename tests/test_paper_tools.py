@@ -145,10 +145,12 @@ def test_suggest_sources_returns_structured_report() -> None:
     assert result == report
     _, kwargs = mocked.call_args
     assert kwargs["schema_cls"] is SourceDiscoveryReport
-    assert "Candidate sources" in kwargs["user"]
+    assert "<candidate_sources>" in kwargs["user"]
+    assert "<research_question>" in kwargs["user"]
     assert "Type: book" in kwargs["user"]
     assert "DOI: 10.1234/example" in kwargs["user"]
     assert "Publisher-controlled full text." in kwargs["user"]
+    assert "Use only the supplied candidates." in kwargs["system"]
 
 
 @pytest.mark.parametrize(

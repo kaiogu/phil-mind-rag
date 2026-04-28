@@ -51,3 +51,17 @@ class TestRAGPrompt:
         result = RetrievalResult(text="ctx", score=0.5, metadata={})
         built = RAGPrompt().build("Q?", [result])
         assert "?" in built  # fallback for missing source/section
+
+    def test_prompt_uses_sectioned_tags_for_context_and_question(self) -> None:
+        built = RAGPrompt().build("What is consciousness?", [_result("ctx")])
+        assert "<context>" in built
+        assert "</context>" in built
+        assert "<question>" in built
+        assert "</question>" in built
+
+    def test_prompt_wraps_each_context_in_source_tags(self) -> None:
+        built = RAGPrompt().build(
+            "Q?", [_result("ctx", source="nagel.pdf", section="Section 2")]
+        )
+        assert '<source id="nagel.pdf" section="Section 2">' in built
+        assert "</source>" in built

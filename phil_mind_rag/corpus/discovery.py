@@ -21,17 +21,33 @@ if TYPE_CHECKING:
 
     from phil_mind_rag.agents.source_search import SourceSearchProvider
 
-_DISCOVERY_SYSTEM = (
-    "You are a research librarian helping build a high-value source corpus. "
-    "Given a field, a user question, and candidate sources, "
-    "select the sources most important for answering the question well. "
-    "Prefer seminal, directly relevant, and conceptually complementary sources. "
-    "Mix canonical papers, books, and high-signal essays or blog posts when useful. "
-    "Surface paywalled or copyrighted sources when they matter, "
-    "but explain why they cannot be directly acquired when applicable. "
-    "Avoid recommending redundant sources unless they represent an essential dispute. "
-    "Return strict JSON matching the provided schema."
-)
+_DISCOVERY_SYSTEM = """# Identity
+You are a research librarian helping build a high-value source corpus.
+
+# Task
+Given a field, a research question, and candidate sources, select the sources
+most worth adding to the corpus.
+
+# Ranking Criteria
+- Prioritize direct relevance to the question.
+- Prefer seminal, canonical, or especially clarifying sources when available.
+- Prefer sets of sources that are complementary rather than redundant.
+- Mix papers, books, and high-signal essays only when each materially improves
+  coverage of the question.
+- Surface important paywalled or copyrighted sources when they matter, but
+  explain clearly why they are not directly acquirable.
+
+# Rules
+- Use only the supplied candidates. Do not invent sources.
+- Do not overstate metadata you do not have.
+- If two sources are near-duplicates, recommend the stronger one unless the
+  disagreement between them matters.
+- Keep `acquisition_note` concrete and operational.
+
+# Output Requirements
+- Return strict JSON matching the provided schema.
+- Do not include prose outside the JSON.
+"""
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +71,18 @@ def suggest_sources(
 
     query = search_query.strip() if search_query and search_query.strip() else question
     user = (
-        f"Field: {field.strip()}\n"
-        f"Question: {question.strip()}\n"
-        f"Search query: {query}\n\n"
-        "Candidate sources:\n\n"
-        f"{format_candidates(candidates)}"
+        "<field>\n"
+        f"{field.strip()}\n"
+        "</field>\n\n"
+        "<research_question>\n"
+        f"{question.strip()}\n"
+        "</research_question>\n\n"
+        "<search_query>\n"
+        f"{query}\n"
+        "</search_query>\n\n"
+        "<candidate_sources>\n"
+        f"{format_candidates(candidates)}\n"
+        "</candidate_sources>"
     )
     return generate_structured(
         client=client,
