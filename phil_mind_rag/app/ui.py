@@ -116,6 +116,18 @@ def create_app() -> gr.Blocks:
             )
 
         with gr.Tab("Ask"):
+            history_state = gr.State(value=[])
+            cache_state = gr.State(value={})
+
+            with gr.Accordion("Session History", open=False):
+                history_display = gr.Dataframe(
+                    headers=["Question", "Synthesis"],
+                    datatype=["str", "str"],
+                    value=[],
+                    interactive=False,
+                    wrap=True,
+                )
+
             question_input = gr.Textbox(
                 label="Question",
                 placeholder="e.g. What is the hard problem of consciousness?",
@@ -155,7 +167,7 @@ def create_app() -> gr.Blocks:
 
             ask_btn.click(
                 fn=handle_analysis,
-                inputs=question_input,
+                inputs=[question_input, history_state, cache_state],
                 outputs=[
                     baseline_output,
                     mat_output,
@@ -166,6 +178,9 @@ def create_app() -> gr.Blocks:
                     sources_output,
                     argument_map_output,
                     download_btn,
+                    history_state,
+                    cache_state,
+                    history_display,
                 ],
             )
 

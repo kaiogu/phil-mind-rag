@@ -50,6 +50,9 @@ type DeepResearchOutputs = tuple[
 ]
 
 
+type _AnalysisOutputs = tuple[str, str, str, str, str, str, str, str, str | None]
+
+
 def _write_export_file(markdown: str) -> str:
     with tempfile.NamedTemporaryFile(
         suffix=".md", delete=False, mode="w", encoding="utf-8"
@@ -440,23 +443,46 @@ def handle_deep_research(
 
 def handle_analysis(
     question: str,
-) -> tuple[str, str, str, str, str, str, str, str, str | None]:
-    """Run multi-agent analysis.
+    history_state: list[list[str]] | None = None,
+    cache_state: dict[str, _AnalysisOutputs] | None = None,
+):
+    """Run multi-agent analysis with per-session result caching.
 
     Returns
     (baseline, materialist, idealist, dualist, grounding, synthesis, sources,
-    argument_map_html, export_path).
+    argument_map_html, export_path, history_state, cache_state, history_rows).
     """
+    history: list[list[str]] = history_state or []
+    cache: dict[str, _AnalysisOutputs] = cache_state or {}
+
     if not question.strip():
         empty = "Please enter a question."
-        return empty, empty, empty, empty, empty, empty, "", "", None
+        outputs: _AnalysisOutputs = (
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            "",
+            "",
+            None,
+        )
+        return (*outputs, history, cache, history)
+
+    cache_key = question.strip().lower()
+    if cache_key in cache:
+        cached = cache[cache_key]
+        history_rows = _append_history(history, question, cached[5])
+        return (*cached, history_rows, cache, history_rows)
 
     try:
         pipeline = get_pipeline()
         settings = get_settings()
         result: AnalysisResult = run_analysis(question, pipeline, settings)
         export_path = _write_export_file(format_export_markdown(result, question))
-        return (
+        synthesis_text = format_synthesis(result.report)
+        outputs = (
             result.baseline_answer,
             format_stance_memo(result.materialist_memo),
             format_stance_memo(result.idealist_memo),
@@ -467,18 +493,34 @@ def handle_analysis(
                     format_verified_claims(result.verified_claims),
                 ]
             ),
-            format_synthesis(result.report),
+            synthesis_text,
             format_sources(result.chunks),
             format_argument_map_html(result.argument_map),
             export_path,
         )
+        cache[cache_key] = outputs
+        history_rows = _append_history(history, question, synthesis_text)
+        return (*outputs, history_rows, cache, history_rows)
     except ValueError as exc:
         err = f"Input error: {exc}"
-        return err, err, err, err, err, err, "", "", None
+        outputs = (err, err, err, err, err, err, "", "", None)
+        return (*outputs, history, cache, history)
     except Exception:
         logger.exception("Analysis failed")
         err = "An unexpected error occurred during analysis."
-        return err, err, err, err, err, err, "", "", None
+        outputs = (err, err, err, err, err, err, "", "", None)
+        return (*outputs, history, cache, history)
+
+
+def _append_history(
+    history: list[list[str]],
+    question: str,
+    synthesis: str,
+) -> list[list[str]]:
+    snippet = synthesis[:300].replace("\n", " ")
+    if len(synthesis) > 300:
+        snippet += "…"
+    return [*history, [question[:80], snippet]]
 
 
 def _deep_research_snapshot(

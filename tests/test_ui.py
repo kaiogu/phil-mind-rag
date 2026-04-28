@@ -187,6 +187,9 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
             sources,
             argument_map,
             export_path,
+            history_out,
+            cache_out,
+            history_rows,
         ) = handle_analysis("What is consciousness?")
 
     assert baseline == "Baseline answer"
@@ -204,21 +207,30 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
     assert "Neural evidence is strong." in argument_map
     assert export_path is not None
     assert export_path.endswith(".md")
+    assert len(history_rows) == 1
+    assert "What is consciousness?" in history_rows[0][0]
+    assert "what is consciousness?" in cache_out
+
+
+def test_handle_analysis_cache_hit_skips_run_analysis() -> None:
+    cached_outputs = ("B", "M", "I", "D", "G", "S-cached", "src", "<html/>", None)
+    preloaded_cache = {"q?": cached_outputs}
+
+    with patch("phil_mind_rag.app.callbacks.run_analysis") as mock_run:
+        result = handle_analysis("Q?", history_state=[], cache_state=preloaded_cache)
+
+    mock_run.assert_not_called()
+    baseline, *_, history_rows = result
+    assert baseline == "B"
+    assert len(history_rows) == 1
 
 
 def test_handle_analysis_rejects_blank_question() -> None:
     result = handle_analysis("   ")
-    assert result == (
-        "Please enter a question.",
-        "Please enter a question.",
-        "Please enter a question.",
-        "Please enter a question.",
-        "Please enter a question.",
-        "Please enter a question.",
-        "",
-        "",
-        None,
-    )
+    baseline, *_, history_state, cache_state, history_rows = result
+    assert baseline == "Please enter a question."
+    assert history_rows == []
+    assert cache_state == {}
 
 
 def test_handle_analysis_returns_input_error() -> None:
@@ -232,17 +244,10 @@ def test_handle_analysis_returns_input_error() -> None:
     ):
         result = handle_analysis("Q?")
 
-    assert result == (
-        "Input error: bad question",
-        "Input error: bad question",
-        "Input error: bad question",
-        "Input error: bad question",
-        "Input error: bad question",
-        "Input error: bad question",
-        "",
-        "",
-        None,
-    )
+    baseline, *_, history_state, cache_state, history_rows = result
+    assert baseline == "Input error: bad question"
+    assert history_rows == []
+    assert cache_state == {}
 
 
 def test_handle_extract_metadata_returns_empty_for_none() -> None:
