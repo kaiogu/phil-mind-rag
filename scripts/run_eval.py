@@ -4,6 +4,7 @@ Loads the RAG pipeline, runs it over data/eval_set.json, and prints RAGAS scores
 
 Usage:
     python scripts/run_eval.py [--eval-set data/eval_set.json] [--top-k 5]
+    python scripts/run_eval.py --by-type          # also print per-question-type table
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 # Make the project importable when run from the repo root.
@@ -44,6 +46,12 @@ def main() -> None:
         type=Path,
         default=None,
         help="Optional base directory for timestamped JSON eval reports.",
+    )
+    parser.add_argument(
+        "--by-type",
+        action="store_true",
+        default=False,
+        help="Also run RAGAS grouped by question_type (skips types with < 3 samples).",
     )
     args = parser.parse_args()
 
@@ -111,6 +119,36 @@ def main() -> None:
     print(result.summary())
     print("================================\n")
 
+    per_type_results: dict[str, object] = {}
+    if args.by_type:
+        by_type: dict[str, list] = defaultdict(list)
+        for sample in samples:
+            key = sample.question_type or "unknown"
+            by_type[key].append(sample)
+
+        print("\n=== RAGAS Results by Question Type ===")
+        cols = f"{'Faith':>6}  {'Rel':>6}  {'Prec':>6}  {'Rec':>6}"
+        header = f"{'Type':<28} {'n':>3}  {cols}"
+        print(header)
+        print("-" * len(header))
+        for qtype in sorted(by_type):
+            group = by_type[qtype]
+            if len(group) < 3:
+                skip_msg = "(skipped — fewer than 3 samples)"
+                print(f"  {qtype:<26} {len(group):>3}  {skip_msg}")
+                continue
+            logger.info("Running RAGAS for type '%s' (%d samples)…", qtype, len(group))
+            type_result = evaluator.evaluate(group)
+            per_type_results[qtype] = type_result
+            print(
+                f"  {qtype:<26} {len(group):>3}"
+                f"  {type_result.faithfulness:>6.3f}"
+                f"  {type_result.answer_relevancy:>6.3f}"
+                f"  {type_result.context_precision:>6.3f}"
+                f"  {type_result.context_recall:>6.3f}"
+            )
+        print("=" * len(header) + "\n")
+
     if args.report_dir is not None:
         run_dir = timestamped_eval_dir(args.report_dir)
         write_json_report(
@@ -131,6 +169,7 @@ def main() -> None:
                     "top_k": args.top_k,
                 },
                 "result": result,
+                "by_type": per_type_results,
             },
         )
         logger.info("Wrote eval reports to %s", run_dir)

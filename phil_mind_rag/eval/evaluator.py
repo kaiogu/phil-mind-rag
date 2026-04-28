@@ -34,6 +34,7 @@ class EvalSample:
     answer: str
     contexts: list[str]
     ground_truth: str
+    question_type: EvalQuestionType | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,7 @@ class EvalQuestion:
             answer=answer,
             contexts=contexts,
             ground_truth=self.ground_truth,
+            question_type=self.question_type,
         )
 
 
