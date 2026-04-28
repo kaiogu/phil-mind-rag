@@ -7,10 +7,13 @@ disagreements, and an adjudicator that actually audits memo claims.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 if TYPE_CHECKING:
+    from openai import OpenAI
+
     from phil_mind_rag.agents.schema import (
         Claim,
         EvidenceClaim,
@@ -33,6 +36,46 @@ class SemanticSupportJudge(Protocol):
         cited_texts: list[str],
     ) -> SemanticSupportLabel:
         """Return whether cited texts semantically support the claim."""
+
+
+_LABEL_RE = re.compile(r"\b(supported|unsupported|ambiguous)\b", re.IGNORECASE)
+
+
+def _parse_support_label(text: str) -> SemanticSupportLabel:
+    m = _LABEL_RE.search(text)
+    if m:
+        return cast("SemanticSupportLabel", m.group(1).lower())
+    return "ambiguous"
+
+
+class LLMSemanticJudge:
+    """SemanticSupportJudge backed by an LLM chat completion call."""
+
+    def __init__(self, client: OpenAI, model: str) -> None:
+        self._client = client
+        self._model = model
+
+    def __call__(
+        self,
+        *,
+        claim_text: str,
+        cited_texts: list[str],
+    ) -> SemanticSupportLabel:
+        evidence = "\n".join(f"[{i + 1}] {t[:500]}" for i, t in enumerate(cited_texts))
+        prompt = (
+            f"Does the following evidence support the claim?\n\n"
+            f"Evidence:\n{evidence}\n\n"
+            f"Claim: {claim_text}\n\n"
+            "Answer with exactly one word: supported, unsupported, or ambiguous."
+        )
+        response = self._client.chat.completions.create(
+            model=self._model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0,
+        )
+        raw = (response.choices[0].message.content or "").strip()
+        return _parse_support_label(raw)
 
 
 @dataclass(frozen=True)

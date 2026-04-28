@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 import pytest
 
 from phil_mind_rag.agents.schema import (
@@ -11,7 +14,9 @@ from phil_mind_rag.agents.schema import (
     SynthesisReport,
 )
 from phil_mind_rag.eval.agent_evaluator import (
+    LLMSemanticJudge,
     SemanticSupportLabel,
+    _parse_support_label,
     evaluate_multi_agent_output,
 )
 from phil_mind_rag.retrieval.store import RetrievalResult
@@ -190,3 +195,83 @@ def test_evaluate_multi_agent_output_skips_semantic_support_without_judge() -> N
     assert result.semantic_support.score == pytest.approx(1.0)
     assert "skipped" in result.semantic_support.notes[0]
     assert result.semantic_findings == []
+
+
+class TestParseSupportLabel:
+    def test_parses_supported(self) -> None:
+        assert _parse_support_label("supported") == "supported"
+
+    def test_parses_unsupported(self) -> None:
+        assert _parse_support_label("unsupported") == "unsupported"
+
+    def test_parses_ambiguous(self) -> None:
+        assert _parse_support_label("ambiguous") == "ambiguous"
+
+    def test_case_insensitive(self) -> None:
+        assert _parse_support_label("SUPPORTED") == "supported"
+
+    def test_extracts_from_sentence(self) -> None:
+        result = _parse_support_label("The claim is supported by the text.")
+        assert result == "supported"
+
+    def test_defaults_to_ambiguous_on_garbage(self) -> None:
+        assert _parse_support_label("I don't know, maybe?") == "ambiguous"
+
+    def test_empty_string_defaults_to_ambiguous(self) -> None:
+        assert _parse_support_label("") == "ambiguous"
+
+
+def _stub_openai_client(response_text: str | None) -> MagicMock:
+    """Build a minimal OpenAI client stub that returns *response_text*."""
+    message = SimpleNamespace(content=response_text)
+    choice = SimpleNamespace(message=message)
+    completion = SimpleNamespace(choices=[choice])
+    client = MagicMock()
+    client.chat.completions.create.return_value = completion
+    return client
+
+
+class TestLLMSemanticJudge:
+    def test_returns_supported_label(self) -> None:
+        client = _stub_openai_client("supported")
+        judge = LLMSemanticJudge(client=client, model="gpt-4o-mini")
+        label = judge(
+            claim_text="Brain produces consciousness.", cited_texts=["Evidence."]
+        )
+        assert label == "supported"
+
+    def test_returns_unsupported_label(self) -> None:
+        client = _stub_openai_client("unsupported")
+        judge = LLMSemanticJudge(client=client, model="gpt-4o-mini")
+        label = judge(
+            claim_text="Qualia are reducible.", cited_texts=["Counter-evidence."]
+        )
+        assert label == "unsupported"
+
+    def test_defaults_ambiguous_on_unparseable_response(self) -> None:
+        client = _stub_openai_client("I cannot determine this.")
+        judge = LLMSemanticJudge(client=client, model="gpt-4o-mini")
+        label = judge(claim_text="Claim.", cited_texts=["Text."])
+        assert label == "ambiguous"
+
+    def test_passes_model_to_client(self) -> None:
+        client = _stub_openai_client("supported")
+        judge = LLMSemanticJudge(client=client, model="claude-3-5-sonnet")
+        judge(claim_text="Claim.", cited_texts=["Text."])
+        call_kwargs = client.chat.completions.create.call_args
+        assert call_kwargs.kwargs["model"] == "claude-3-5-sonnet"
+
+    def test_truncates_long_evidence_to_500_chars(self) -> None:
+        long_text = "x" * 1000
+        client = _stub_openai_client("supported")
+        judge = LLMSemanticJudge(client=client, model="gpt-4o-mini")
+        judge(claim_text="Claim.", cited_texts=[long_text])
+        call_args = client.chat.completions.create.call_args
+        prompt = call_args.kwargs["messages"][0]["content"]
+        assert "x" * 501 not in prompt
+
+    def test_handles_none_response_content(self) -> None:
+        client = _stub_openai_client(None)
+        judge = LLMSemanticJudge(client=client, model="gpt-4o-mini")
+        label = judge(claim_text="Claim.", cited_texts=["Text."])
+        assert label == "ambiguous"

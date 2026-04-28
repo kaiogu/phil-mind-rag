@@ -10,7 +10,10 @@ from phil_mind_rag.agents.schema import (
     StanceMemo,
     SynthesisReport,
 )
-from phil_mind_rag.eval.agent_evaluator import evaluate_multi_agent_output
+from phil_mind_rag.eval.agent_evaluator import (
+    SemanticSupportJudge,
+    evaluate_multi_agent_output,
+)
 from phil_mind_rag.eval.reporting import timestamped_eval_dir, write_json_report
 from phil_mind_rag.retrieval.store import RetrievalResult
 
@@ -18,7 +21,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def build_smoke_agent_eval_report() -> dict[str, Any]:
+def build_smoke_agent_eval_report(
+    semantic_judge: SemanticSupportJudge | None = None,
+) -> dict[str, Any]:
     """Build a deterministic multi-agent eval report with no paid calls."""
     chunks = [
         RetrievalResult(
@@ -103,11 +108,14 @@ def build_smoke_agent_eval_report() -> dict[str, Any]:
         report=report,
         chunk_count=len(chunks),
         chunks=chunks,
+        semantic_judge=semantic_judge,
     )
     return {
         "config": {
             "mode": "offline_smoke",
-            "semantic_support_judge": "not_configured",
+            "semantic_support_judge": (
+                "llm" if semantic_judge is not None else "not_configured"
+            ),
             "expected_stances": ["materialist", "idealist", "dualist"],
         },
         "fixture": {
@@ -120,11 +128,14 @@ def build_smoke_agent_eval_report() -> dict[str, Any]:
     }
 
 
-def write_smoke_agent_eval_report(base_dir: Path) -> Path:
+def write_smoke_agent_eval_report(
+    base_dir: Path,
+    semantic_judge: SemanticSupportJudge | None = None,
+) -> Path:
     """Write the offline agent eval report and return the JSON path."""
     run_dir = timestamped_eval_dir(base_dir)
     report_path = run_dir / "agent_eval.json"
-    write_json_report(report_path, build_smoke_agent_eval_report())
+    write_json_report(report_path, build_smoke_agent_eval_report(semantic_judge))
     return report_path
 
 
