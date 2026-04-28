@@ -11,6 +11,10 @@ uv sync
 # Run the app
 python main.py          # Launches Gradio at http://localhost:7860
 
+# Ingest open-access corpus papers (Chalmers, Block)
+uv run python scripts/setup_corpus.py          # fetch and ingest
+uv run python scripts/setup_corpus.py --dry-run  # list candidates only
+
 # Run evaluation (requires at least one ingested doc)
 python scripts/run_eval.py
 
