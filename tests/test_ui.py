@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from phil_mind_rag.agents.graph import AnalysisResult
@@ -22,6 +22,7 @@ from phil_mind_rag.agents.schema import (
 from phil_mind_rag.app.callbacks import (
     handle_acquire_sources,
     handle_analysis,
+    handle_deep_research,
     handle_discover_sources,
     handle_extract_metadata,
     handle_refresh,
@@ -32,9 +33,6 @@ from phil_mind_rag.ingestion.chunker import Chunk
 from phil_mind_rag.ingestion.metadata_extractor import ExtractedMetadata
 from phil_mind_rag.ingestion.registry import DocumentRecord
 from phil_mind_rag.retrieval.store import RetrievalResult
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def _source_report() -> SourceDiscoveryReport:
@@ -486,6 +484,173 @@ def test_handle_acquire_sources_formats_results(tmp_path: Path) -> None:
     assert "Skipped **The Conscious Mind**" in markdown
 
 
+def test_handle_deep_research_streams_end_to_end_results(tmp_path: Path) -> None:
+    class _OpenAIWebSearchProvider:
+        pass
+
+    settings = MagicMock()
+    settings.llm_provider = "openai"
+    settings.openai_chat_model = "gpt-5-mini"
+    settings.openai_web_search_model = "gpt-5-mini"
+    settings.source_download_dir = tmp_path / "discovered"
+
+    existing_record = DocumentRecord(
+        source="existing.pdf",
+        title="Existing Paper",
+        author="Existing Author",
+        chunk_count=8,
+        chunk_size=512,
+        chunk_overlap=64,
+        chunker="phil_mind_rag.ingestion.chunker.SectionAwareChunker",
+        embedding_model="text-embedding-3-small",
+        ingested_at="2026-04-18T12:34:56+00:00",
+    )
+    new_record = DocumentRecord(
+        source="new.pdf",
+        title="New Paper",
+        author="New Author",
+        chunk_count=12,
+        chunk_size=512,
+        chunk_overlap=64,
+        chunker="phil_mind_rag.ingestion.chunker.SectionAwareChunker",
+        embedding_model="text-embedding-3-small",
+        ingested_at="2026-04-18T12:35:56+00:00",
+    )
+
+    pipeline = MagicMock()
+    pipeline.list_documents.side_effect = [
+        [existing_record],
+        [existing_record, new_record],
+    ]
+
+    acquisition_results = [
+        MagicMock(
+            success=True,
+            status="downloaded",
+            path=tmp_path / "discovered" / "new.pdf",
+            skipped=False,
+            title="Facing Up to the Problem of Consciousness",
+            ingested_chunks=12,
+            skip_reason=None,
+            error=None,
+        ),
+        MagicMock(
+            success=False,
+            status="skipped",
+            path=None,
+            skipped=True,
+            title="The Conscious Mind",
+            ingested_chunks=None,
+            skip_reason="No lawful downloadable copy was available.",
+            error=None,
+        ),
+    ]
+
+    result = AnalysisResult(
+        baseline_answer="Baseline answer",
+        report=_report(),
+        chunks=[
+            RetrievalResult(
+                text="new chunk",
+                score=0.9,
+                metadata={"source": "new.pdf", "section": "intro"},
+            ),
+            RetrievalResult(
+                text="existing chunk",
+                score=0.8,
+                metadata={"source": "existing.pdf", "section": "chapter 1"},
+            ),
+        ],
+        materialist_memo=_memo("materialist"),
+        idealist_memo=_memo("idealist"),
+        dualist_memo=_memo("dualist"),
+        verified_claims=[],
+        argument_map=None,
+    )
+
+    with (
+        patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline),
+        patch("phil_mind_rag.app.callbacks.get_settings", return_value=settings),
+        patch(
+            "phil_mind_rag.app.callbacks.default_source_providers",
+            return_value=[_OpenAIWebSearchProvider()],
+        ),
+        patch("phil_mind_rag.app.callbacks.generation_client"),
+        patch(
+            "phil_mind_rag.app.callbacks.discover_sources",
+            return_value=_source_report(),
+        ),
+        patch(
+            "phil_mind_rag.app.callbacks.download_sources",
+            return_value=acquisition_results,
+        ),
+        patch("phil_mind_rag.app.callbacks.run_analysis", return_value=result),
+    ):
+        updates = list(
+            handle_deep_research(
+                "philosophy of mind",
+                "How do major views on consciousness respond to the hard problem?",
+                "",
+            )
+        )
+
+    assert len(updates) == 4
+    final = updates[-1]
+    assert "Workflow Status" in final[0]
+    assert "completed. Retrieved 2 chunk(s)" in final[0]
+    assert "Facing Up to the Problem of Consciousness" in final[1]
+    assert "Downloaded **Facing Up to the Problem of Consciousness**" in final[2]
+    assert (
+        "Both newly added sources and existing library sources were used." in final[3]
+    )
+    assert "new.pdf" in final[3]
+    assert "existing.pdf" in final[3]
+    assert final[4] == "Baseline answer"
+    assert "materialist support" in final[5]
+    assert "idealist support" in final[6]
+    assert "dualist support" in final[7]
+    assert "Supported Claims" in final[8]
+    assert "Synthesis" in final[9]
+    assert "new.pdf" in final[10]
+
+
+def test_handle_deep_research_skips_analysis_when_library_is_empty() -> None:
+    settings = MagicMock()
+    settings.llm_provider = "openai"
+    settings.openai_chat_model = "gpt-5-mini"
+    settings.openai_web_search_model = "gpt-5-mini"
+    settings.source_download_dir = Path("data/raw/test-discovered")
+
+    pipeline = MagicMock()
+    pipeline.list_documents.side_effect = [[], []]
+
+    with (
+        patch("phil_mind_rag.app.callbacks.get_pipeline", return_value=pipeline),
+        patch("phil_mind_rag.app.callbacks.get_settings", return_value=settings),
+        patch("phil_mind_rag.app.callbacks.default_source_providers", return_value=[]),
+        patch("phil_mind_rag.app.callbacks.generation_client"),
+        patch(
+            "phil_mind_rag.app.callbacks.discover_sources",
+            side_effect=ValueError("providers returned no candidates"),
+        ),
+    ):
+        updates = list(
+            handle_deep_research(
+                "philosophy of mind",
+                "What is consciousness?",
+                "",
+            )
+        )
+
+    final = updates[-1]
+    assert "failed. Input error: providers returned no candidates" in final[0]
+    assert "skipped. Discovery failed, so no acquisition jobs were run." in final[0]
+    assert "skipped. The library is empty, so analysis could not run." in final[0]
+    assert final[3] == "No library sources are available for analysis."
+    assert final[4] == ""
+    assert final[10] == ""
+
+
 def test_create_app_builds_expected_tabs() -> None:
     app = create_app()
 
@@ -505,14 +670,24 @@ def test_create_app_builds_expected_tabs() -> None:
     assert "Discovery Results" in labels
     assert "Acquisition Status" in labels
     assert "Upload Status" in labels
+    assert "Workflow Status" in labels
+    assert "Discovered Sources" in labels
+    assert "Acquisition and Ingestion" in labels
+    assert "Corpus Usage" in labels
     assert "Field" in labels
     assert "Discovery Question" in labels
+    assert "Research Question" in labels
     assert "Search Query Override (optional)" in labels
     assert any(
         isinstance(value, str) and "Single-Agent Baseline" in value for value in values
     )
     assert any(
         isinstance(value, str) and "Manual PDF Upload" in value for value in values
+    )
+    assert any(
+        isinstance(value, str)
+        and "Start from a research goal and run discovery" in value
+        for value in values
     )
     assert any(
         isinstance(value, str) and "leave the search query override blank" in value

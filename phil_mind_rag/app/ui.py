@@ -9,6 +9,7 @@ import gradio as gr
 from phil_mind_rag.app.callbacks import (
     handle_acquire_sources,
     handle_analysis,
+    handle_deep_research,
     handle_discover_sources,
     handle_extract_metadata,
     handle_refresh,
@@ -26,6 +27,82 @@ def create_app() -> gr.Blocks:
             "Upload academic papers (PDF), then ask a question to receive "
             "three grounded stance memos and an adjudicated synthesis report."
         )
+
+        with gr.Tab("Deep Research"):
+            gr.Markdown(
+                "Start from a research goal and run discovery, acquisition, "
+                "ingestion, and grounded analysis in one workflow."
+            )
+            research_field_input = gr.Textbox(
+                label="Field",
+                placeholder="e.g. philosophy of mind",
+                value="",
+            )
+            research_question_input = gr.Textbox(
+                label="Research Question",
+                placeholder=(
+                    "e.g. How do major views on consciousness respond to the "
+                    "hard problem?"
+                ),
+                lines=2,
+            )
+            with gr.Accordion("Advanced Search Options", open=False):
+                research_search_query_input = gr.Textbox(
+                    label="Search Query Override (optional)",
+                    placeholder=(
+                        "e.g. hard problem consciousness seminal papers books"
+                    ),
+                    value="",
+                )
+            deep_research_btn = gr.Button("Run Deep Research", variant="primary")
+
+            workflow_status_output = gr.Markdown(label="Workflow Status")
+            deep_discovery_output = gr.Markdown(label="Discovered Sources")
+            deep_acquisition_output = gr.Markdown(label="Acquisition and Ingestion")
+            corpus_usage_output = gr.Markdown(label="Corpus Usage")
+
+            gr.Markdown("### Single-Agent Baseline")
+            deep_baseline_output = gr.Markdown(label="Baseline answer")
+
+            gr.Markdown("### Stance Memos")
+            with gr.Tabs():
+                with gr.Tab("Materialist"):
+                    deep_mat_output = gr.Markdown(label="Materialist memo")
+                with gr.Tab("Idealist"):
+                    deep_ide_output = gr.Markdown(label="Idealist memo")
+                with gr.Tab("Dualist"):
+                    deep_dua_output = gr.Markdown(label="Dualist memo")
+
+            gr.Markdown("### Grounding")
+            deep_grounding_output = gr.Markdown(label="Grounding")
+
+            gr.Markdown("### Synthesis")
+            deep_synthesis_output = gr.Markdown(label="Synthesis")
+
+            gr.Markdown("### Sources")
+            deep_sources_output = gr.Markdown(label="Sources")
+
+            deep_research_btn.click(
+                fn=handle_deep_research,
+                inputs=[
+                    research_field_input,
+                    research_question_input,
+                    research_search_query_input,
+                ],
+                outputs=[
+                    workflow_status_output,
+                    deep_discovery_output,
+                    deep_acquisition_output,
+                    corpus_usage_output,
+                    deep_baseline_output,
+                    deep_mat_output,
+                    deep_ide_output,
+                    deep_dua_output,
+                    deep_grounding_output,
+                    deep_synthesis_output,
+                    deep_sources_output,
+                ],
+            )
 
         with gr.Tab("Ask"):
             question_input = gr.Textbox(
