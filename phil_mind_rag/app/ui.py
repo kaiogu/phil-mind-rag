@@ -85,6 +85,12 @@ def create_app() -> gr.Blocks:
             gr.Markdown("### Argument Map")
             deep_argument_map_output = gr.HTML(label="Argument Map")
 
+            deep_download_btn = gr.DownloadButton(
+                "Download Report",
+                value=None,
+                size="sm",
+            )
+
             deep_research_btn.click(
                 fn=handle_deep_research,
                 inputs=[
@@ -105,6 +111,7 @@ def create_app() -> gr.Blocks:
                     deep_synthesis_output,
                     deep_sources_output,
                     deep_argument_map_output,
+                    deep_download_btn,
                 ],
             )
 
@@ -140,6 +147,12 @@ def create_app() -> gr.Blocks:
             gr.Markdown("### Argument Map")
             argument_map_output = gr.HTML(label="Argument Map")
 
+            download_btn = gr.DownloadButton(
+                "Download Report",
+                value=None,
+                size="sm",
+            )
+
             ask_btn.click(
                 fn=handle_analysis,
                 inputs=question_input,
@@ -152,6 +165,7 @@ def create_app() -> gr.Blocks:
                     synthesis_output,
                     sources_output,
                     argument_map_output,
+                    download_btn,
                 ],
             )
 

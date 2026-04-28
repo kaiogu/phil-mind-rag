@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 
 from phil_mind_rag.agents.graph import AnalysisResult, run_analysis
@@ -20,6 +21,7 @@ from phil_mind_rag.app.formatting import (
     format_acquisition_results,
     format_argument_map_html,
     format_discovery_report,
+    format_export_markdown,
     format_grounding,
     format_sources,
     format_stance_memo,
@@ -44,7 +46,16 @@ type DeepResearchOutputs = tuple[
     str,  # synthesis
     str,  # sources
     str,  # argument_map (HTML)
+    str,  # export_path
 ]
+
+
+def _write_export_file(markdown: str) -> str:
+    with tempfile.NamedTemporaryFile(
+        suffix=".md", delete=False, mode="w", encoding="utf-8"
+    ) as f:
+        f.write(markdown)
+        return f.name
 
 
 def handle_refresh() -> list[list[object]]:
@@ -363,6 +374,7 @@ def handle_deep_research(
             "completed",
             f"Retrieved {len(result.chunks)} chunk(s) for the final answer.",
         )
+        export_path = _write_export_file(format_export_markdown(result, question))
         yield _deep_research_snapshot(
             status=_format_workflow_status(
                 discovery=discovery_status,
@@ -385,6 +397,7 @@ def handle_deep_research(
             synthesis=format_synthesis(result.report),
             sources=format_sources(result.chunks),
             argument_map=format_argument_map_html(result.argument_map),
+            export_path=export_path,
         )
     except ValueError as exc:
         error = f"Input error: {exc}"
@@ -427,21 +440,22 @@ def handle_deep_research(
 
 def handle_analysis(
     question: str,
-) -> tuple[str, str, str, str, str, str, str, str]:
+) -> tuple[str, str, str, str, str, str, str, str, str | None]:
     """Run multi-agent analysis.
 
     Returns
     (baseline, materialist, idealist, dualist, grounding, synthesis, sources,
-    argument_map_html).
+    argument_map_html, export_path).
     """
     if not question.strip():
         empty = "Please enter a question."
-        return empty, empty, empty, empty, empty, empty, "", ""
+        return empty, empty, empty, empty, empty, empty, "", "", None
 
     try:
         pipeline = get_pipeline()
         settings = get_settings()
         result: AnalysisResult = run_analysis(question, pipeline, settings)
+        export_path = _write_export_file(format_export_markdown(result, question))
         return (
             result.baseline_answer,
             format_stance_memo(result.materialist_memo),
@@ -456,14 +470,15 @@ def handle_analysis(
             format_synthesis(result.report),
             format_sources(result.chunks),
             format_argument_map_html(result.argument_map),
+            export_path,
         )
     except ValueError as exc:
         err = f"Input error: {exc}"
-        return err, err, err, err, err, err, "", ""
+        return err, err, err, err, err, err, "", "", None
     except Exception:
         logger.exception("Analysis failed")
         err = "An unexpected error occurred during analysis."
-        return err, err, err, err, err, err, "", ""
+        return err, err, err, err, err, err, "", "", None
 
 
 def _deep_research_snapshot(
@@ -480,6 +495,7 @@ def _deep_research_snapshot(
     synthesis: str = "",
     sources: str = "",
     argument_map: str = "",
+    export_path: str = "",
 ) -> DeepResearchOutputs:
     return (
         status,
@@ -494,6 +510,7 @@ def _deep_research_snapshot(
         synthesis,
         sources,
         argument_map,
+        export_path,
     )
 
 

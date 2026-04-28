@@ -186,6 +186,7 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
             synthesis,
             sources,
             argument_map,
+            export_path,
         ) = handle_analysis("What is consciousness?")
 
     assert baseline == "Baseline answer"
@@ -201,6 +202,8 @@ def test_handle_analysis_returns_baseline_and_audit_sections() -> None:
     assert "Materialist" in argument_map
     assert "reduction" in argument_map
     assert "Neural evidence is strong." in argument_map
+    assert export_path is not None
+    assert export_path.endswith(".md")
 
 
 def test_handle_analysis_rejects_blank_question() -> None:
@@ -214,6 +217,7 @@ def test_handle_analysis_rejects_blank_question() -> None:
         "Please enter a question.",
         "",
         "",
+        None,
     )
 
 
@@ -237,6 +241,7 @@ def test_handle_analysis_returns_input_error() -> None:
         "Input error: bad question",
         "",
         "",
+        None,
     )
 
 

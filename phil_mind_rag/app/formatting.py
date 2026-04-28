@@ -6,6 +6,7 @@ import html as _html
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from phil_mind_rag.agents.graph import AnalysisResult
     from phil_mind_rag.agents.schema import (
         ArgumentMap,
         ArgumentMapClaim,
@@ -328,3 +329,31 @@ def format_acquisition_results(results: list) -> str:
             continue
         lines.append(f"- Failed **{result.title}** ({state}): {result.error}")
     return "\n".join(lines)
+
+
+def format_export_markdown(result: AnalysisResult, question: str) -> str:
+    """Serialise a full analysis result as a structured Markdown document."""
+    from datetime import UTC, datetime
+
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    sections = [
+        f"# Research Report\n\n**Question:** {question}\n\n_Generated: {timestamp}_",
+        "## Baseline Answer\n\n" + result.baseline_answer,
+        "## Stance Memos\n\n### Materialist\n\n"
+        + format_stance_memo(result.materialist_memo)
+        + "\n\n### Idealist\n\n"
+        + format_stance_memo(result.idealist_memo)
+        + "\n\n### Dualist\n\n"
+        + format_stance_memo(result.dualist_memo),
+        "## Grounding\n\n"
+        + "\n\n".join(
+            [
+                format_grounding(result.report),
+                format_verified_claims(result.verified_claims),
+            ]
+        ),
+        "## Synthesis\n\n" + format_synthesis(result.report),
+        "## Argument Map\n\n" + format_argument_map(result.argument_map),
+        "## Sources\n\n" + format_sources(result.chunks),
+    ]
+    return "\n\n---\n\n".join(sections)

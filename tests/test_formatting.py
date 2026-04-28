@@ -1,7 +1,20 @@
 """Tests for app formatting helpers."""
 
-from phil_mind_rag.agents.schema import ArgumentMap, ArgumentMapClaim, ArgumentMapStance
-from phil_mind_rag.app.formatting import format_argument_map_html
+from phil_mind_rag.agents.graph import AnalysisResult
+from phil_mind_rag.agents.schema import (
+    ArgumentMap,
+    ArgumentMapClaim,
+    ArgumentMapStance,
+    Claim,
+    EvidenceClaim,
+    StanceMemo,
+    SynthesisReport,
+)
+from phil_mind_rag.app.formatting import (
+    format_argument_map_html,
+    format_export_markdown,
+)
+from phil_mind_rag.retrieval.store import RetrievalResult
 
 
 def _map(
@@ -109,3 +122,69 @@ class TestFormatArgumentMapHtml:
         )
         html = format_argument_map_html(_map(stances=[stance]))
         assert "#9e9e9e" in html  # gray for not adjudicated
+
+
+def _analysis_result() -> AnalysisResult:
+    memo = StanceMemo(
+        stance="materialist",
+        thesis="Consciousness is physical.",
+        supporting_claims=[EvidenceClaim(text="Neural basis.", citations=["c0"])],
+        rival_critiques=[],
+        confidence=0.8,
+        uncertainty_notes="",
+    )
+    report = SynthesisReport(
+        question="What is consciousness?",
+        areas_of_disagreement=["reduction"],
+        strongest_arguments={"materialist": "Neural correlates."},
+        supported_claims=[
+            Claim(
+                text="Neural basis.",
+                stance="materialist",
+                supported=True,
+                citations=["c0"],
+                source_chunk_id="c0",
+                note="Grounded.",
+            )
+        ],
+        unsupported_claims=[],
+        synthesis="Remains open.",
+        decisive_chunks=["c0"],
+        source_chunks_used=["c0"],
+    )
+    return AnalysisResult(
+        baseline_answer="Baseline.",
+        report=report,
+        chunks=[
+            RetrievalResult(
+                text="ctx", score=0.9, metadata={"source": "a", "section": "S1"}
+            )
+        ],
+        materialist_memo=memo,
+        idealist_memo=memo,
+        dualist_memo=memo,
+        argument_map=_map(),
+    )
+
+
+class TestFormatExportMarkdown:
+    def test_contains_question(self) -> None:
+        md = format_export_markdown(_analysis_result(), "What is consciousness?")
+        assert "What is consciousness?" in md
+
+    def test_contains_all_sections(self) -> None:
+        md = format_export_markdown(_analysis_result(), "Q?")
+        assert "## Baseline Answer" in md
+        assert "## Stance Memos" in md
+        assert "## Grounding" in md
+        assert "## Synthesis" in md
+        assert "## Argument Map" in md
+        assert "## Sources" in md
+
+    def test_contains_timestamp(self) -> None:
+        md = format_export_markdown(_analysis_result(), "Q?")
+        assert "UTC" in md
+
+    def test_contains_baseline_text(self) -> None:
+        md = format_export_markdown(_analysis_result(), "Q?")
+        assert "Baseline." in md
