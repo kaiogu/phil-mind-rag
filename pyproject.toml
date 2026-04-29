@@ -12,7 +12,7 @@ dependencies = [
     "ragas>=0.4.3",
     "sentence-transformers>=5.1.1",
     "unstructured[pdf]>=0.22.23",
-    "langgraph>=1.1.0",
+    "langgraph>=1.1.10",
     "pandas>=2.3.3",
 ]
 
