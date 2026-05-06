@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "chromadb>=1.5.8",
     "gradio>=6.8.0",
-    "openai>=2.24.0",
+    "openai>=2.34.0",
     "pydantic-settings>=2.14.0",
     "ragas>=0.4.3",
     "sentence-transformers>=5.1.1",
